@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install *)",
+      "Bash(python -c ' *)",
+      "Bash(python3 -c \"from app import create_app; print\\('import ok'\\)\")",
+      "Bash(py -c \"from app import create_app; print\\('import ok'\\)\")",
+      "Bash(py -m pip install Flask Flask-Login Flask-SQLAlchemy Flask-WTF WTForms bcrypt PyJWT python-dotenv flask-bcrypt -q)",
+      "Bash(py -c ' *)",
+      "Bash(py demo_setup.py)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "mcp__Claude_in_Chrome__navigate",
+      "mcp__Claude_in_Chrome__computer",
+      "Bash(python run.py)",
+      "Bash(where python3 *)",
+      "Bash(ls /c/Python* /c/Users/semo/AppData/Local/Programs/Python/*/python.exe)",
+      "Bash(\"C:\\\\Users\\\\semo\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python3.exe\" run.py)",
+      "mcp__Claude_in_Chrome__javascript_tool",
+      "Bash(echo.)",
+      "PowerShell(New-Item -Path \"C:\\\\Users\\\\semo\\\\Desktop\\\\Project\\\\PulseCore\\\\README.md\" -ItemType File -Force)"
+    ]
+  }
+}

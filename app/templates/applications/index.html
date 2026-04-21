@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Applications — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<span class="text-sm font-medium text-gray-700">Applications</span>
+{% endblock %}
+
+{% block content %}
+{% if apps %}
+
+<div class="mb-6 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">Applications</h1>
+    <p class="text-gray-500 text-sm mt-1">Select a form to enter or view data</p>
+  </div>
+  {% if can_access('app_builder') %}
+  <a href="{{ url_for('applications.manage') }}"
+     class="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+    Manage Apps
+  </a>
+  {% endif %}
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+  {% for app in apps %}
+  {% set cc = app.color_classes() %}
+  {% set app_ets = app.get_entity_types() %}
+  <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
+
+    <!-- App header -->
+    <div class="px-5 py-4 {{ cc[0] }} border-b border-black/5">
+      <div class="flex items-center space-x-3">
+        <span class="text-2xl">{{ app.icon or '📦' }}</span>
+        <div>
+          <h2 class="text-base font-bold {{ cc[1] }}">{{ app.name }}</h2>
+          {% if app.description %}
+          <p class="text-xs {{ cc[1] }} opacity-70 mt-0.5">{{ app.description }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Forms (entity types) -->
+    <div class="flex-1 divide-y divide-gray-100">
+      {% if app_ets %}
+        {% for et in app_ets %}
+        <a href="{{ url_for('records.list_records', entity_type_id=et.id) }}"
+           class="flex items-center justify-between px-5 py-4 hover:bg-gray-50 group transition-colors">
+          <div class="flex items-center space-x-3 min-w-0">
+            <span class="text-xl flex-shrink-0">{{ et.icon or '📋' }}</span>
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-gray-800 group-hover:text-gray-900 truncate">{{ et.name }}</p>
+              {% if et.form_mode == 'update' %}
+              <p class="text-xs text-amber-500">Update existing record</p>
+              {% else %}
+              <p class="text-xs text-gray-400">New entry</p>
+              {% endif %}
+            </div>
+          </div>
+          {% if et.form_mode == 'update' %}
+          <svg class="w-4 h-4 text-amber-400 group-hover:text-amber-600 flex-shrink-0 ml-2" fill="none"
+               stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+          </svg>
+          {% else %}
+          <svg class="w-4 h-4 text-gray-300 group-hover:text-gray-500 flex-shrink-0 ml-2" fill="none"
+               stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+          {% endif %}
+        </a>
+        {% endfor %}
+      {% else %}
+      <div class="px-5 py-8 text-center">
+        <p class="text-sm text-gray-400">No forms configured yet.</p>
+        {% if can_access('app_builder') %}
+        <a href="{{ url_for('applications.builder', app_id=app.id) }}"
+           class="mt-2 inline-block text-xs text-blue-600 hover:underline">Configure app →</a>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Admin footer -->
+    {% if can_access('app_builder') %}
+    <div class="px-5 py-2.5 bg-gray-50 border-t border-gray-100">
+      <a href="{{ url_for('applications.builder', app_id=app.id) }}"
+         class="text-xs text-gray-400 hover:text-gray-700 transition-colors">
+        ⚙ Configure
+      </a>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+
+<!-- Empty state -->
+<div class="flex flex-col items-center justify-center min-h-96">
+  <div class="text-center max-w-sm">
+    <div class="text-6xl mb-4">📦</div>
+    <h2 class="text-xl font-semibold text-gray-800 mb-2">No Applications Yet</h2>
+    {% if can_access('app_builder') %}
+    <p class="text-gray-500 text-sm mb-6">
+      Create an application to start collecting data.
+    </p>
+    <a href="{{ url_for('applications.manage') }}"
+       class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors">
+      Create Application
+    </a>
+    {% else %}
+    <p class="text-gray-500 text-sm">
+      No applications are available. Contact your administrator.
+    </p>
+    {% endif %}
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}

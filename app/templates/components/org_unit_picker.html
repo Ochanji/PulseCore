@@ -1,0 +1,12 @@
+<div class="org-unit-picker">
+  <select name="{{ name or 'org_unit_id' }}"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          {% if required %}required{% endif %}>
+    <option value="">Select org unit...</option>
+    {% for unit in units %}
+    <option value="{{ unit.id }}" {% if selected_id == unit.id %}selected{% endif %}>
+      {{ '—' * unit.level }} {{ unit.name }}
+    </option>
+    {% endfor %}
+  </select>
+</div>

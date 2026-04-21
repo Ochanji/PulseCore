@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}{{ program.name }} — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<a href="{{ url_for('programs.list_programs') }}" class="text-sm text-gray-500 hover:text-gray-700">Programs</a>
+<span class="text-gray-400 mx-2">/</span>
+<span class="text-sm font-medium text-gray-700">{{ program.name }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="flex items-start justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">{{ program.name }}</h1>
+    <div class="flex items-center space-x-3 mt-1">
+      {% if program.code %}<span class="font-mono text-sm text-gray-500">{{ program.code }}</span>{% endif %}
+      {% if program.sector %}
+      <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+        {{ program.sector|replace('_',' ')|title }}
+      </span>
+      {% endif %}
+      {% if program.start_date or program.end_date %}
+      <span class="text-xs text-gray-400">
+        {{ program.start_date.strftime('%b %Y') if program.start_date else '?' }} —
+        {{ program.end_date.strftime('%b %Y') if program.end_date else 'Ongoing' }}
+      </span>
+      {% endif %}
+    </div>
+  </div>
+  {% if can_access('admin_section') %}
+  <a href="{{ url_for('programs.edit_program', program_id=program.id) }}"
+     class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+    Edit Program
+  </a>
+  {% endif %}
+</div>
+
+<!-- Summary stats -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  {% for label, value, color in [
+    ('Active Participants', program.active_participants, 'blue'),
+    ('Total Grants', program.grants.count(), 'green'),
+    ('Total Budget', ('$' + '{:,.0f}'.format(program.total_budget)) if program.total_budget else '—', 'purple'),
+    ('Indicators', program.indicators.count(), 'amber'),
+  ] %}
+  <div class="bg-white rounded-xl border border-gray-200 px-5 py-4 text-center">
+    <p class="text-2xl font-bold text-gray-900">{{ value }}</p>
+    <p class="text-xs text-gray-500 mt-1">{{ label }}</p>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <!-- Grants -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+      <h2 class="font-semibold text-gray-800">Grants</h2>
+    </div>
+
+    {% if grants %}
+    <div class="divide-y divide-gray-100">
+      {% for g in grants %}
+      <div class="px-5 py-4">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-sm font-semibold text-gray-800">{{ g.name }}</p>
+            {% if g.grant_code %}<p class="text-xs font-mono text-gray-400">{{ g.grant_code }}</p>{% endif %}
+            <p class="text-xs text-gray-500 mt-1">
+              Donor: {{ g.donor or '—' }}
+              {% if g.budget %} · {{ g.currency }} {{ '{:,.0f}'.format(g.budget) }}{% endif %}
+            </p>
+            {% if g.start_date or g.end_date %}
+            <p class="text-xs text-gray-400 mt-0.5">
+              {{ g.start_date.strftime('%b %Y') if g.start_date else '?' }} — {{ g.end_date.strftime('%b %Y') if g.end_date else 'Ongoing' }}
+            </p>
+            {% endif %}
+          </div>
+          <div class="flex items-center space-x-2">
+            {% if g.is_expired %}
+            <span class="text-xs px-2 py-0.5 bg-red-50 text-red-600 rounded-full">Expired</span>
+            {% else %}
+            <span class="text-xs px-2 py-0.5 bg-green-50 text-green-700 rounded-full">Active</span>
+            {% endif %}
+            {% if can_access('admin_section') %}
+            <form method="POST" action="{{ url_for('programs.delete_grant', grant_id=g.id) }}"
+                  onsubmit="return confirm('Remove this grant?')">
+              <button type="submit" class="text-xs text-red-400 hover:text-red-600">Remove</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="px-5 py-8 text-center text-gray-400 text-sm">No grants added yet.</div>
+    {% endif %}
+
+    {% if can_access('admin_section') %}
+    <!-- Add Grant Form -->
+    <div class="px-5 py-4 border-t border-gray-100 bg-gray-50">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Add Grant</p>
+      <form method="POST" action="{{ url_for('programs.new_grant', program_id=program.id) }}" class="space-y-3">
+        <div class="grid grid-cols-2 gap-2">
+          <input type="text" name="name" required placeholder="Grant name *"
+                 class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <input type="text" name="grant_code" placeholder="Grant code"
+                 class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <input type="text" name="donor" placeholder="Donor"
+                 class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <div class="flex space-x-1">
+            <select name="currency" class="px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-20">
+              <option>USD</option><option>EUR</option><option>GBP</option><option>KES</option><option>ETB</option>
+            </select>
+            <input type="number" name="budget" placeholder="Budget" step="0.01"
+                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <input type="date" name="start_date"
+                 class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <input type="date" name="end_date"
+                 class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <button type="submit"
+                class="w-full py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+          Add Grant
+        </button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Indicators linked to this program -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+      <h2 class="font-semibold text-gray-800">Indicators</h2>
+      {% if can_access('admin_section') %}
+      <a href="{{ url_for('indicators.new_indicator') }}" class="text-xs text-blue-600 hover:underline font-medium">+ Add</a>
+      {% endif %}
+    </div>
+    {% set prog_indicators = program.indicators.filter_by(is_active=True).all() %}
+    {% if prog_indicators %}
+    <div class="divide-y divide-gray-100">
+      {% for ind in prog_indicators %}
+      <a href="{{ url_for('indicators.indicator_detail', indicator_id=ind.id) }}"
+         class="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors">
+        <div>
+          <p class="text-sm font-medium text-gray-800">{{ ind.name }}</p>
+          <p class="text-xs text-gray-400 mt-0.5">{{ ind.unit or '' }} · {{ ind.aggregation|title }}</p>
+        </div>
+        <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="px-5 py-8 text-center text-gray-400 text-sm">No indicators configured.</div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

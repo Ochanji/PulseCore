@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}{{ indicator.name }} — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<a href="{{ url_for('indicators.list_indicators') }}" class="text-sm text-gray-500 hover:text-gray-700">Indicators</a>
+<span class="text-gray-400 mx-2">/</span>
+<span class="text-sm font-medium text-gray-700">{{ indicator.name }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="flex items-start justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">{{ indicator.name }}</h1>
+    <div class="flex items-center space-x-3 mt-1">
+      {% if indicator.code %}<span class="font-mono text-sm text-gray-400">{{ indicator.code }}</span>{% endif %}
+      {% if indicator.sector %}<span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">{{ indicator.sector|replace('_',' ')|title }}</span>{% endif %}
+      {% if indicator.unit %}<span class="text-sm text-gray-500">Unit: {{ indicator.unit }}</span>{% endif %}
+    </div>
+  </div>
+  <!-- Year selector -->
+  <div class="flex items-center space-x-2">
+    <a href="?year={{ year - 1 }}" class="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">‹</a>
+    <span class="px-4 py-2 bg-gray-800 text-white text-sm font-semibold rounded-lg">{{ year }}</span>
+    <a href="?year={{ year + 1 }}" class="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">›</a>
+  </div>
+</div>
+
+<!-- Annual progress bar -->
+{% set total_value = monthly_data | sum(attribute='value') | float %}
+{% set pct = ((total_value / annual_target * 100) | round(1)) if annual_target else 0 %}
+<div class="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <p class="text-sm font-semibold text-gray-600">{{ year }} Progress</p>
+      <p class="text-3xl font-bold text-gray-900 mt-0.5">
+        {{ '{:,.0f}'.format(total_value) }}
+        <span class="text-lg text-gray-400 font-normal">/ {{ '{:,.0f}'.format(annual_target) if annual_target else '—' }} {{ indicator.unit or '' }}</span>
+      </p>
+    </div>
+    <div class="text-right">
+      <p class="text-3xl font-bold {% if pct >= 100 %}text-green-600{% elif pct >= 75 %}text-amber-500{% else %}text-red-500{% endif %}">
+        {{ pct }}%
+      </p>
+      <p class="text-xs text-gray-400 mt-0.5">of annual target</p>
+    </div>
+  </div>
+  <div class="w-full bg-gray-100 rounded-full h-3">
+    <div class="h-3 rounded-full transition-all
+                {% if pct >= 100 %}bg-green-500{% elif pct >= 75 %}bg-amber-400{% else %}bg-blue-500{% endif %}"
+         style="width: {{ [pct, 100]|min }}%"></div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- Monthly chart + table -->
+  <div class="lg:col-span-2 space-y-6">
+
+    <!-- Bar chart -->
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+      <h2 class="font-semibold text-gray-800 mb-4">Monthly Values — {{ year }}</h2>
+      <canvas id="monthlyChart" height="120"></canvas>
+    </div>
+
+    <!-- Monthly breakdown table -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100"><h2 class="font-semibold text-gray-800">Monthly Breakdown</h2></div>
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-gray-50 border-b border-gray-200">
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Month</th>
+            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Value</th>
+            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Source</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% set months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+          {% for row in monthly_data %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-3 font-medium text-gray-700">{{ months[row.month - 1] }}</td>
+            <td class="px-4 py-3 text-right font-semibold text-gray-900">
+              {{ '{:,.0f}'.format(row.value) if row.value else '—' }}
+            </td>
+            <td class="px-4 py-3 text-right">
+              {% if row.is_manual %}
+              <span class="text-xs px-2 py-0.5 bg-amber-50 text-amber-600 rounded">Manual</span>
+              {% else %}
+              <span class="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded">Auto</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Right panel: info + target setter -->
+  <div class="space-y-4">
+
+    <!-- Info -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100"><h2 class="font-semibold text-gray-800">Details</h2></div>
+      <dl class="px-5 py-4 space-y-2.5 text-sm">
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Program</dt>
+          <dd class="text-gray-800 font-medium">{{ indicator.program.name if indicator.program else '—' }}</dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Aggregation</dt>
+          <dd class="text-gray-800">{{ indicator.aggregation|title }}</dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Target type</dt>
+          <dd class="text-gray-800">{{ indicator.target_type|title }}</dd>
+        </div>
+        {% if indicator.entity_type %}
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Data source</dt>
+          <dd class="text-gray-800">{{ indicator.entity_type.name }}</dd>
+        </div>
+        {% endif %}
+        {% if indicator.description %}
+        <div class="pt-2 border-t border-gray-100">
+          <p class="text-gray-500 mb-1">Description</p>
+          <p class="text-gray-700 text-xs leading-relaxed">{{ indicator.description }}</p>
+        </div>
+        {% endif %}
+      </dl>
+    </div>
+
+    <!-- Set annual target -->
+    {% if can_access('admin_section') %}
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100"><h2 class="font-semibold text-gray-800">Set Annual Target</h2></div>
+      <form method="POST" action="{{ url_for('indicators.set_target', indicator_id=indicator.id) }}"
+            class="px-5 py-4 space-y-3">
+        <input type="hidden" name="year" value="{{ year }}">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Org Unit (blank = all)</label>
+          <select name="org_unit_id"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">All units</option>
+            {% for u in units %}
+            <option value="{{ u.id }}">{{ u.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Target Value</label>
+          <input type="number" name="target_value" step="1" min="0"
+                 value="{{ annual_target or '' }}"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <button type="submit"
+                class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+          Save Target
+        </button>
+      </form>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const values = {{ monthly_data | map(attribute='value') | list | tojson }};
+const target = {{ annual_target or 0 }};
+
+new Chart(document.getElementById('monthlyChart'), {
+  type: 'bar',
+  data: {
+    labels: months,
+    datasets: [{
+      label: '{{ indicator.unit or "Value" }}',
+      data: values,
+      backgroundColor: 'rgba(37,99,235,0.7)',
+      borderColor: 'rgba(37,99,235,1)',
+      borderWidth: 1,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ' ' + ctx.parsed.y.toLocaleString() + ' {{ indicator.unit or "" }}' } }
+    },
+    scales: {
+      y: { beginAtZero: true, ticks: { font: { size: 11 } } },
+      x: { ticks: { font: { size: 11 } } }
+    }
+  }
+});
+</script>
+{% endblock %}

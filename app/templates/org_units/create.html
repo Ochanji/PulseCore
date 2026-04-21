@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Add Org Unit — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<a href="{{ url_for('org_units.index') }}" class="text-sm text-gray-500 hover:text-gray-700">Org Units</a>
+<span class="text-gray-400 mx-2">/</span>
+<span class="text-sm font-medium text-gray-700">Add Unit</span>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-lg">
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Add Org Unit</h1>
+  </div>
+
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <form method="POST" action="{{ url_for('org_units.create') }}" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
+        <input type="text" name="name" required autofocus
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+               placeholder="e.g. Northern Region">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Code</label>
+        <input type="text" name="code"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+               placeholder="e.g. NR001">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Parent Unit</label>
+        <select name="parent_id"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">— Root (no parent) —</option>
+          {% for unit in units %}
+          <option value="{{ unit.id }}" {% if prefill_parent_id == unit.id %}selected{% endif %}>
+            {{ '—' * unit.level }} {{ unit.name }} ({{ unit.get_level_name() }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex space-x-3 pt-2">
+        <a href="{{ url_for('org_units.index') }}"
+           class="flex-1 text-center px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
+          Cancel
+        </a>
+        <button type="submit"
+                class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+          Create
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

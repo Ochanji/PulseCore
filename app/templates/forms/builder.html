@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Form Builder — {{ form.name }} — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<a href="{{ url_for('forms.list_forms') }}" class="text-sm text-gray-500 hover:text-gray-700">Forms</a>
+<span class="text-gray-400 mx-2">/</span>
+<span class="text-sm font-medium text-gray-700">{{ form.name }} — Builder</span>
+{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">{{ form.name }}</h1>
+    <p class="text-sm text-gray-500 mt-1">Entity type: <strong>{{ entity_type.name }}</strong> · v{{ form.version }}</p>
+  </div>
+  <div class="flex space-x-2">
+    <a href="{{ url_for('forms.preview', form_id=form.id) }}"
+       class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
+      Preview
+    </a>
+    <a href="{{ url_for('forms.submit', form_id=form.id) }}"
+       class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+      Fill Form
+    </a>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <!-- Available Fields -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-800">Available Fields</h2>
+      <p class="text-xs text-gray-500 mt-0.5">Check fields to include on this form</p>
+    </div>
+    <form method="POST" action="{{ url_for('forms.builder', form_id=form.id) }}" id="builder-form">
+      <div class="divide-y divide-gray-100">
+        {% for field in all_fields %}
+        <div class="flex items-start px-5 py-4">
+          <input type="checkbox" name="field_ids" value="{{ field.id }}" id="f{{ field.id }}"
+                 {% if field.id in included_ids %}checked{% endif %}
+                 class="mt-0.5 h-4 w-4 text-blue-600 border-gray-300 rounded">
+          <div class="ml-3 flex-1">
+            <label for="f{{ field.id }}" class="flex items-center space-x-2 cursor-pointer">
+              <span class="text-sm font-medium text-gray-900">{{ field.label }}</span>
+              <span class="text-xs text-gray-400 font-mono">{{ field.field_type }}</span>
+              {% if field.is_required %}<span class="text-xs text-red-500">required</span>{% endif %}
+            </label>
+            {% if field.id in included_ids %}
+            <div class="mt-2">
+              <input type="text" name="help_{{ field.id }}"
+                     placeholder="Optional help text for this field..."
+                     class="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500">
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        {% else %}
+        <div class="px-5 py-8 text-center text-gray-400 text-sm">
+          No fields defined for {{ entity_type.name }}.
+          <a href="{{ url_for('entities.builder', entity_id=entity_type.id) }}" class="text-blue-600 hover:underline">Add fields →</a>
+        </div>
+        {% endfor %}
+      </div>
+      {% if all_fields %}
+      <div class="px-5 py-4 border-t border-gray-100">
+        <button type="submit"
+                class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+          Save Field Selection
+        </button>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Current Form Preview -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-800">Current Form</h2>
+      <p class="text-xs text-gray-500 mt-0.5">{{ form.form_fields.count() }} field{{ 's' if form.form_fields.count() != 1 else '' }} included</p>
+    </div>
+    <div class="p-5 space-y-4">
+      {% for ff in form.form_fields.order_by('order') %}
+      {% set field = ff.entity_field %}
+      {% if field %}
+      <div class="border border-gray-200 rounded-lg p-4">
+        <div class="flex items-center justify-between mb-1">
+          <label class="text-sm font-medium text-gray-700">
+            {{ field.label }}{% if field.is_required %} <span class="text-red-500">*</span>{% endif %}
+          </label>
+          <span class="text-xs text-gray-400">{{ field.field_type }}</span>
+        </div>
+        {% if ff.help_text %}
+        <p class="text-xs text-gray-500 mb-2">{{ ff.help_text }}</p>
+        {% endif %}
+        <div class="h-8 bg-gray-100 rounded border border-gray-200 opacity-50"></div>
+      </div>
+      {% endif %}
+      {% else %}
+      <div class="text-center py-8 text-gray-400 text-sm">
+        No fields selected yet. Check fields on the left.
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

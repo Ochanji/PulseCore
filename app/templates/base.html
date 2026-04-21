@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}PulseCore{% endblock %}</title>
+  <meta name="theme-color" content="#0d4f8c">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <style>
+    .nav-dropdown:focus-within .nav-dropdown-menu,
+    .nav-dropdown.open .nav-dropdown-menu { display: block; }
+  </style>
+</head>
+<body class="h-full flex flex-col">
+
+{% if current_user.is_authenticated %}
+{% set _ep = request.endpoint or '' %}
+
+<!-- ── Top Navigation Bar ──────────────────────────────────────────────────── -->
+<nav class="bg-[#0d4f8c] text-white flex-shrink-0 relative z-40">
+  <div class="flex items-center h-12 px-4">
+
+    <!-- Logo -->
+    <a href="{{ url_for('dashboard.index') }}" class="flex items-center space-x-2.5 mr-6 flex-shrink-0">
+      <svg class="w-7 h-7 text-blue-300" viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2.5"/>
+        <path d="M8 16 Q12 8 16 16 Q20 24 24 16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+      </svg>
+      <div class="leading-tight">
+        <div class="text-sm font-bold text-white tracking-wide">PulseCore</div>
+        <div class="text-xs text-blue-300 truncate max-w-[140px]">{{ current_user.organisation.name }}</div>
+      </div>
+    </a>
+
+    <!-- Nav Items -->
+    <div class="flex items-center flex-1 space-x-1 text-sm">
+
+      {# Dashboard #}
+      {% if not is_report_viewer_only() %}
+      <a href="{{ url_for('dashboard.index') }}"
+         class="px-3 py-2 rounded text-sm font-medium transition-colors
+                {% if _ep == 'dashboard.index' %}bg-white/20 text-white{% else %}text-blue-100 hover:bg-white/10 hover:text-white{% endif %}">
+        Dashboard
+      </a>
+      {% endif %}
+
+      {# Reports dropdown #}
+      {% if can_access('reports') %}
+      <div class="relative nav-dropdown" id="dd-reports">
+        <button onclick="toggleDropdown('dd-reports')"
+                class="flex items-center space-x-1 px-3 py-2 rounded text-sm font-medium transition-colors
+                       {% if 'reports' in _ep or 'participants' in _ep or 'programs' in _ep %}bg-white/20 text-white{% else %}text-blue-100 hover:bg-white/10 hover:text-white{% endif %}">
+          <span>Reports</span>
+          <svg class="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="nav-dropdown-menu hidden absolute left-0 top-full mt-0.5 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-2 text-gray-700">
+          <a href="{{ url_for('reports.index') }}"
+             class="flex items-center px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700">
+            Reports & Export
+          </a>
+          {% if can_access('workflow') %}
+          <a href="{{ url_for('workflow.queue') }}"
+             class="flex items-center px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700">
+            Approval Queue
+          </a>
+          {% endif %}
+          {% if can_access('indicators') %}
+          <a href="{{ url_for('indicators.list_indicators') }}"
+             class="flex items-center px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700">
+            Indicators
+          </a>
+          {% endif %}
+          {% if can_access('participants') %}
+          <div class="border-t border-gray-100 mt-1 pt-1">
+            <a href="{{ url_for('participants.list_participants') }}"
+               class="flex items-center px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700">
+              Cases
+            </a>
+          </div>
+          {% endif %}
+          {% if can_access('programs') %}
+          <a href="{{ url_for('programs.list_programs') }}"
+             class="flex items-center px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700">
+            Programs & Grants
+          </a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      {# Applications dropdown #}
+      {% if can_access('applications') %}
+      <div class="relative nav-dropdown" id="dd-apps">
+        <button onclick="toggleDropdown('dd-apps')"
+                class="flex items-center space-x-1 px-3 py-2 rounded text-sm font-medium transition-colors
+                       {% if 'applications' in _ep or 'entities' in _ep %}bg-white/20 text-white{% else %}text-blue-100 hover:bg-white/10 hover:text-white{% endif %}">
+          <span>Applications</span>
+          <svg class="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="nav-dropdown-menu hidden absolute left-0 top-full mt-0.5 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-2 text-gray-700">
+          <div class="px-3 py-1.5">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">My Applications</p>
+          </div>
+          <a href="{{ url_for('applications.index') }}"
+             class="flex items-center px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700">
+            App Launcher
+          </a>
+          {% if can_access('app_builder') %}
+          <div class="border-t border-gray-100 mt-1 pt-1">
+            <a href="{{ url_for('applications.manage') }}"
+               class="flex items-center px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700">
+              Manage Apps
+            </a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      {# Users / Admin dropdown #}
+      {% if can_access('admin_section') %}
+      <div class="relative nav-dropdown" id="dd-users">
+        <button onclick="toggleDropdown('dd-users')"
+                class="flex items-center space-x-1 px-3 py-2 rounded text-sm font-medium transition-colors
+                       {% if 'admin' in _ep or 'org_units' in _ep %}bg-white/20 text-white{% else %}text-blue-100 hover:bg-white/10 hover:text-white{% endif %}">
+          <span>Users</span>
+          <svg class="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="nav-dropdown-menu hidden absolute left-0 top-full mt-0.5 w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-2 text-gray-700">
+          <div class="px-3 py-1.5">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Users</p>
+          </div>
+          <a href="{{ url_for('admin.users') }}"
+             class="flex items-center px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700">
+            All Users
+          </a>
+          <div class="border-t border-gray-100 mt-1 pt-1">
+            <div class="px-3 py-1.5">
+              <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Organisation</p>
+            </div>
+            <a href="{{ url_for('org_units.index') }}"
+               class="flex items-center px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700">
+              Org Units
+            </a>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <!-- Right side: role badge + user menu -->
+    <div class="flex items-center space-x-3 flex-shrink-0 ml-4">
+
+      <!-- Role badge -->
+      {% if current_user.is_superadmin %}
+      <span class="px-2 py-0.5 text-xs font-semibold bg-purple-500/30 text-purple-200 rounded-full border border-purple-400/30">Superadmin</span>
+      {% else %}
+        {% set top_role = current_user.get_roles()|reject('equalto','superadmin')|list|first %}
+        {% if top_role %}
+        <span class="px-2 py-0.5 text-xs font-medium bg-white/15 text-blue-100 rounded-full">{{ top_role|replace('_',' ')|title }}</span>
+        {% endif %}
+      {% endif %}
+
+      <!-- User menu -->
+      <div class="relative nav-dropdown" id="dd-user">
+        <button onclick="toggleDropdown('dd-user')"
+                class="flex items-center space-x-2 pl-2 pr-1 py-1.5 rounded hover:bg-white/10 transition-colors">
+          <div class="w-7 h-7 rounded-full bg-blue-400/40 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+            {{ current_user.username[0]|upper }}
+          </div>
+          <span class="text-sm text-blue-100 max-w-[100px] truncate hidden sm:block">{{ current_user.username }}</span>
+          <svg class="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="nav-dropdown-menu hidden absolute right-0 top-full mt-0.5 w-44 bg-white rounded-lg shadow-xl border border-gray-200 py-2 text-gray-700">
+          <div class="px-4 py-2 border-b border-gray-100 mb-1">
+            <p class="text-sm font-medium text-gray-900 truncate">{{ current_user.username }}</p>
+            <p class="text-xs text-gray-400 truncate">{{ current_user.email }}</p>
+          </div>
+          <a href="{{ url_for('auth.logout') }}"
+             class="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+            Sign out
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</nav>
+
+{% endif %}
+
+<!-- ── Content wrapper ──────────────────────────────────────────────────────── -->
+<div class="flex-1 flex flex-col min-h-0">
+
+  {% if current_user.is_authenticated %}
+  <!-- Breadcrumb bar -->
+  <div class="bg-white border-b border-gray-200 px-6 py-2 flex items-center space-x-2 text-sm text-gray-600 flex-shrink-0">
+    {% block breadcrumb %}
+    <span class="text-gray-400">Home</span>
+    {% endblock %}
+  </div>
+  {% endif %}
+
+  <!-- Flash messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="px-6 pt-4 space-y-2 flex-shrink-0">
+      {% for category, message in messages %}
+      <div class="flex items-center px-4 py-3 rounded-lg text-sm font-medium
+        {% if category == 'error' %}bg-red-50 text-red-700 border border-red-200
+        {% elif category == 'success' %}bg-green-50 text-green-700 border border-green-200
+        {% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">
+        <span>{{ message }}</span>
+        <button onclick="this.parentElement.remove()" class="ml-auto opacity-60 hover:opacity-100 text-current pl-4">✕</button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Page content -->
+  <main class="flex-1 px-6 py-6 overflow-auto">
+    {% block content %}{% endblock %}
+  </main>
+
+</div>
+
+{% block scripts %}{% endblock %}
+
+<script>
+function toggleDropdown(id) {
+  const all = document.querySelectorAll('.nav-dropdown');
+  all.forEach(d => { if (d.id !== id) d.classList.remove('open'); });
+  document.getElementById(id).classList.toggle('open');
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.nav-dropdown')) {
+    document.querySelectorAll('.nav-dropdown').forEach(d => d.classList.remove('open'));
+  }
+});
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/static/js/sw.js')
+      .catch(err => console.warn('SW registration failed:', err));
+  });
+}
+</script>
+
+</body>
+</html>

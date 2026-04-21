@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Approval Queue — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<span class="text-sm font-medium text-gray-700">Approval Queue</span>
+{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <h1 class="text-2xl font-bold text-gray-900">Approval Queue</h1>
+  <p class="text-gray-500 text-sm mt-1">Review and approve form submissions from your teams</p>
+</div>
+
+<!-- State tabs -->
+<div class="flex space-x-1 bg-gray-100 rounded-lg p-1 mb-6 w-fit">
+  {% for state, (label, css) in state_labels.items() %}
+  {% if state != 'draft' and state != 'recalled' %}
+  <a href="{{ url_for('workflow.queue', state=state) }}"
+     class="px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2
+            {% if state_filter == state %}bg-white shadow text-gray-900{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+    <span>{{ label }}</span>
+    {% if counts.get(state, 0) %}
+    <span class="px-1.5 py-0.5 rounded-full text-xs
+                 {% if state_filter == state %}bg-blue-100 text-blue-700{% else %}bg-gray-200 text-gray-600{% endif %}">
+      {{ counts[state] }}
+    </span>
+    {% endif %}
+  </a>
+  {% endif %}
+  {% endfor %}
+</div>
+
+{% if submissions %}
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="bg-gray-50 border-b border-gray-200">
+        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Form</th>
+        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Submitted By</th>
+        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Org Unit</th>
+        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+        <th class="px-4 py-3"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for sub in submissions %}
+      {% set slabel, scss = state_labels.get(sub.workflow_state, ('Unknown', 'bg-gray-100 text-gray-500')) %}
+      <tr class="hover:bg-gray-50 transition-colors">
+        <td class="px-4 py-3">
+          <p class="font-medium text-gray-900">{{ sub.form.name }}</p>
+          <p class="text-xs text-gray-400">{{ sub.form.entity_type.name }}</p>
+        </td>
+        <td class="px-4 py-3 text-gray-600">{{ sub.submitter.username if sub.submitter else '—' }}</td>
+        <td class="px-4 py-3 text-gray-600">{{ sub.org_unit.name if sub.org_unit else '—' }}</td>
+        <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+          {{ sub.submitted_at.strftime('%Y-%m-%d %H:%M') if sub.submitted_at else '—' }}
+        </td>
+        <td class="px-4 py-3">
+          <span class="px-2.5 py-1 rounded-full text-xs font-medium {{ scss }}">{{ slabel }}</span>
+        </td>
+        <td class="px-4 py-3 text-right">
+          <a href="{{ url_for('workflow.review', submission_id=sub.id) }}"
+             class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors">
+            Review →
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
+  <p class="text-3xl mb-3">✅</p>
+  <p class="text-gray-500 font-medium">No submissions in this state</p>
+  <p class="text-gray-400 text-sm mt-1">All caught up!</p>
+</div>
+{% endif %}
+{% endblock %}

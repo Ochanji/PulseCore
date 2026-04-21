@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}{{ participant.full_name }} — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<a href="{{ url_for('participants.list_participants') }}" class="text-sm text-gray-500 hover:text-gray-700">Cases</a>
+<span class="text-gray-400 mx-2">/</span>
+<span class="text-sm font-medium text-gray-700">{{ participant.full_name }}</span>
+{% endblock %}
+
+{% block content %}
+{% set consent_colors = {
+  'given': 'bg-green-100 text-green-700 border-green-200',
+  'pending': 'bg-amber-100 text-amber-700 border-amber-200',
+  'withdrawn': 'bg-red-100 text-red-700 border-red-200',
+  'expired': 'bg-gray-100 text-gray-600 border-gray-200',
+} %}
+
+<div class="flex items-start justify-between mb-6">
+  <div class="flex items-center space-x-4">
+    <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+      <span class="text-2xl font-bold text-blue-600">{{ participant.first_name[0]|upper }}</span>
+    </div>
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">{{ participant.full_name }}</h1>
+      <div class="flex items-center space-x-3 mt-1">
+        <span class="font-mono text-sm text-gray-500">{{ participant.case_number }}</span>
+        <span class="px-2 py-0.5 rounded-full text-xs font-medium border {{ consent_colors.get(participant.consent_status, 'bg-gray-100 text-gray-600 border-gray-200') }}">
+          Consent: {{ participant.consent_status|title }}
+        </span>
+        {% if not participant.is_active %}
+        <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200">Inactive</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="flex space-x-2">
+    <a href="{{ url_for('participants.edit', participant_id=participant.id) }}"
+       class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+      Edit
+    </a>
+    {% if can_access('admin_section') and participant.is_active %}
+    <form method="POST" action="{{ url_for('participants.deactivate', participant_id=participant.id) }}"
+          onsubmit="return confirm('Deactivate this participant? Their data is kept.')">
+      <button type="submit"
+              class="px-4 py-2 border border-red-200 rounded-lg text-sm text-red-500 hover:bg-red-50 transition-colors">
+        Deactivate
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- Left: Details -->
+  <div class="lg:col-span-1 space-y-4">
+
+    <!-- Personal Info -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="font-semibold text-gray-800">Personal Details</h2>
+      </div>
+      <dl class="px-5 py-4 space-y-3 text-sm">
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Age</dt>
+          <dd class="text-gray-800 font-medium">{{ participant.age or '—' }}{% if participant.age %} yrs{% endif %}</dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Date of Birth</dt>
+          <dd class="text-gray-800">{{ participant.date_of_birth.strftime('%Y-%m-%d') if participant.date_of_birth else '—' }}</dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Gender</dt>
+          <dd class="text-gray-800">{{ participant.gender|replace('_',' ')|title if participant.gender else '—' }}</dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-gray-500">National ID</dt>
+          <dd class="text-gray-800 font-mono text-xs">{{ participant.national_id or '—' }}</dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Phone</dt>
+          <dd class="text-gray-800">{{ participant.phone or '—' }}</dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Org Unit</dt>
+          <dd class="text-gray-800">{{ participant.org_unit.name if participant.org_unit else '—' }}</dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Registered</dt>
+          <dd class="text-gray-800">{{ participant.created_at.strftime('%Y-%m-%d') if participant.created_at else '—' }}</dd>
+        </div>
+        {% if participant.notes %}
+        <div class="pt-2 border-t border-gray-100">
+          <dt class="text-gray-500 mb-1">Notes</dt>
+          <dd class="text-gray-700 text-xs leading-relaxed">{{ participant.notes }}</dd>
+        </div>
+        {% endif %}
+      </dl>
+    </div>
+
+    <!-- Enroll in Program -->
+    {% if can_access('programs') %}
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="font-semibold text-gray-800">Enroll in Program</h2>
+      </div>
+      <div class="px-5 py-4">
+        <form method="POST" action="{{ url_for('participants.enroll', participant_id=participant.id) }}">
+          <select name="program_id"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
+            <option value="">— Select program —</option>
+            {% set enrolled_ids = enrollments | map(attribute='program_id') | list %}
+            {% for prog in participant.org_unit.org_unit_level.org_units if prog %}{% endfor %}
+          </select>
+          <button type="submit"
+                  class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors">
+            Enroll
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Right: Enrollments + Records -->
+  <div class="lg:col-span-2 space-y-6">
+
+    <!-- Program Enrollments -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="font-semibold text-gray-800">Program Enrollments</h2>
+        <span class="text-xs text-gray-400">{{ enrollments|length }} program{{ 's' if enrollments|length != 1 }}</span>
+      </div>
+      {% if enrollments %}
+      <div class="divide-y divide-gray-100">
+        {% for e in enrollments %}
+        <div class="px-5 py-3.5 flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-800">{{ e.program.name }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">
+              {{ e.program.sector|replace('_',' ')|title if e.program.sector else '' }}
+              · Enrolled {{ e.enrolled_at.strftime('%Y-%m-%d') if e.enrolled_at else '—' }}
+            </p>
+          </div>
+          {% set status_map = {'active': 'bg-green-100 text-green-700', 'exited': 'bg-gray-100 text-gray-500', 'transferred': 'bg-blue-100 text-blue-700'} %}
+          <span class="px-2.5 py-1 rounded-full text-xs font-medium {{ status_map.get(e.status, 'bg-gray-100 text-gray-500') }}">
+            {{ e.status|title }}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="px-5 py-8 text-center text-gray-400 text-sm">Not enrolled in any program yet.</div>
+      {% endif %}
+    </div>
+
+    <!-- Records -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="font-semibold text-gray-800">Records</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Submissions linked to this participant</p>
+      </div>
+      {% if records %}
+      <div class="divide-y divide-gray-100">
+        {% for rec in records %}
+        <div class="px-5 py-3.5 flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-800">{{ rec.display_label or ('Record #' + rec.id|string) }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">
+              {{ rec.entity_type.name }} · {{ rec.org_unit.name if rec.org_unit else '—' }}
+              · {{ rec.created_at.strftime('%Y-%m-%d') if rec.created_at else '' }}
+            </p>
+          </div>
+          <a href="{{ url_for('records.detail', record_id=rec.id) }}"
+             class="text-xs text-blue-600 hover:underline font-medium">View →</a>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="px-5 py-8 text-center text-gray-400 text-sm">No records linked yet.</div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}{{ user.username }} — Unit Assignments — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<a href="{{ url_for('admin.users') }}" class="text-sm text-gray-500 hover:text-gray-700">Users</a>
+<span class="text-gray-400 mx-2">/</span>
+<span class="text-sm font-medium text-gray-700">{{ user.username }} — Units</span>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">{{ user.username }} — Unit Assignments</h1>
+    <p class="text-gray-500 text-sm mt-1">{{ user.email }}</p>
+  </div>
+
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-800">Assign Org Units & Roles</h2>
+      <p class="text-xs text-gray-500 mt-0.5">Check units to assign. Role determines data access level.</p>
+    </div>
+    <form method="POST" action="{{ url_for('admin.save_user_units', user_id=user.id) }}">
+      <div class="divide-y divide-gray-100">
+        {% for unit in units %}
+        <div class="flex items-center justify-between px-5 py-3">
+          <div class="flex items-center space-x-3">
+            <input type="checkbox" name="unit_ids" value="{{ unit.id }}"
+                   id="unit_{{ unit.id }}"
+                   {% if unit.id in assigned_map %}checked{% endif %}
+                   class="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                   onchange="toggleRole({{ unit.id }}, this.checked)">
+            <label for="unit_{{ unit.id }}" class="text-sm text-gray-900 cursor-pointer">
+              {{ '—' * unit.level }} {{ unit.name }}
+              <span class="text-xs text-gray-400 ml-1">{{ unit.get_level_name() }}</span>
+            </label>
+          </div>
+          <div id="role_container_{{ unit.id }}"
+               class="{% if unit.id not in assigned_map %}hidden{% endif %}">
+            <select name="role_{{ unit.id }}"
+                    class="px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">
+              {% for role in roles %}
+              <option value="{{ role }}"
+                      {% if unit.id in assigned_map and assigned_map[unit.id].role == role %}selected{% endif %}>
+                {{ role.replace('_', ' ').title() }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        {% else %}
+        <div class="px-5 py-8 text-center text-gray-400 text-sm">
+          No org units defined. <a href="{{ url_for('org_units.create') }}" class="text-blue-600 hover:underline">Add one →</a>
+        </div>
+        {% endfor %}
+      </div>
+      {% if units %}
+      <div class="px-5 py-4 border-t border-gray-100 flex space-x-3">
+        <a href="{{ url_for('admin.users') }}"
+           class="flex-1 text-center px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
+          Cancel
+        </a>
+        <button type="submit"
+                class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+          Save Assignments
+        </button>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleRole(unitId, checked) {
+  const container = document.getElementById('role_container_' + unitId);
+  if (checked) {
+    container.classList.remove('hidden');
+  } else {
+    container.classList.add('hidden');
+  }
+}
+</script>
+{% endblock %}

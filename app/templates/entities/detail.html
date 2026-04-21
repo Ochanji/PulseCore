@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{{ entity_type.name }} — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<a href="{{ url_for('entities.list_entities') }}" class="text-sm text-gray-500 hover:text-gray-700">Entity Types</a>
+<span class="text-gray-400 mx-2">/</span>
+<span class="text-sm font-medium text-gray-700">{{ entity_type.name }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="flex items-start justify-between mb-6">
+  <div>
+    <div class="flex items-center space-x-3">
+      <span class="text-3xl">{{ entity_type.icon or '📋' }}</span>
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">{{ entity_type.name }}</h1>
+        <p class="text-gray-500 text-sm">slug: <code class="font-mono">{{ entity_type.slug }}</code></p>
+      </div>
+    </div>
+    {% if entity_type.description %}
+    <p class="text-gray-600 text-sm mt-3">{{ entity_type.description }}</p>
+    {% endif %}
+  </div>
+  <div class="flex space-x-2">
+    <a href="{{ url_for('entities.builder', entity_id=entity_type.id) }}"
+       class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
+      Edit Fields
+    </a>
+    <a href="{{ url_for('records.list_records', entity_type_id=entity_type.id) }}"
+       class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+      View Records ({{ record_count }})
+    </a>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-800">Fields ({{ entity_type.fields.count() }})</h2>
+    </div>
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">#</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Label</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Name</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Type</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Flags</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for field in entity_type.fields %}
+        <tr>
+          <td class="px-5 py-3 text-gray-400 text-xs">{{ field.order + 1 }}</td>
+          <td class="px-5 py-3 font-medium text-gray-900">{{ field.label }}</td>
+          <td class="px-5 py-3 text-gray-500 font-mono text-xs">{{ field.name }}</td>
+          <td class="px-5 py-3 text-gray-600">{{ field.field_type }}</td>
+          <td class="px-5 py-3 space-x-1">
+            {% if field.is_required %}<span class="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded">required</span>{% endif %}
+            {% if field.is_unique %}<span class="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded">unique</span>{% endif %}
+            {% if field.display_in_list %}<span class="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded">list</span>{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="px-5 py-8 text-center text-gray-400 text-sm">No fields defined.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="space-y-4">
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+      <h3 class="font-semibold text-gray-800 mb-3">Properties</h3>
+      <dl class="space-y-2 text-sm">
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Total records</dt>
+          <dd class="font-medium">{{ record_count }}</dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Is lookup list</dt>
+          <dd>{% if entity_type.is_lookup %}<span class="text-amber-600 font-medium">Yes</span>{% else %}No{% endif %}</dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Parent type</dt>
+          <dd class="font-medium">{{ entity_type.parent_entity_type.name if entity_type.parent_entity_type else '—' }}</dd>
+        </div>
+      </dl>
+    </div>
+
+    {% if entity_type.child_entity_types.count() > 0 %}
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+      <h3 class="font-semibold text-gray-800 mb-3">Child Entity Types</h3>
+      <ul class="space-y-1 text-sm">
+        {% for cet in entity_type.child_entity_types %}
+        <li>
+          <a href="{{ url_for('entities.detail', entity_id=cet.id) }}"
+             class="text-blue-600 hover:underline">{{ cet.icon or '📋' }} {{ cet.name }}</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

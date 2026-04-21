@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}App Templates — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<a href="{{ url_for('applications.manage') }}" class="text-sm text-gray-500 hover:text-gray-700">Applications</a>
+<span class="text-gray-400 mx-2">/</span>
+<span class="text-sm font-medium text-gray-700">Templates</span>
+{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <h1 class="text-2xl font-bold text-gray-900">Application Templates</h1>
+  <p class="text-gray-500 text-sm mt-1">
+    Install a pre-built template to get started quickly. All entity types, fields and forms
+    are fully configurable after installation — just like any application you build from scratch.
+  </p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+  {% for tpl in templates %}
+  {% set is_installed = tpl.key in installed_keys %}
+
+  {% set color_map = {
+    'blue':   ('bg-blue-50', 'text-blue-700', 'border-blue-200', 'bg-blue-600', 'hover:bg-blue-700'),
+    'red':    ('bg-red-50', 'text-red-700', 'border-red-200', 'bg-red-600', 'hover:bg-red-700'),
+    'green':  ('bg-green-50', 'text-green-700', 'border-green-200', 'bg-green-600', 'hover:bg-green-700'),
+    'purple': ('bg-purple-50', 'text-purple-700', 'border-purple-200', 'bg-purple-600', 'hover:bg-purple-700'),
+    'amber':  ('bg-amber-50', 'text-amber-700', 'border-amber-200', 'bg-amber-600', 'hover:bg-amber-700'),
+    'teal':   ('bg-teal-50', 'text-teal-700', 'border-teal-200', 'bg-teal-600', 'hover:bg-teal-700'),
+  } %}
+  {% set cc = color_map.get(tpl.color, color_map['blue']) %}
+
+  <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col">
+
+    <!-- Header -->
+    <div class="px-6 py-5 {{ cc[0] }} border-b {{ cc[2] }}">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <span class="text-3xl">{{ tpl.icon }}</span>
+          <div>
+            <h2 class="text-lg font-bold {{ cc[1] }}">{{ tpl.name }}</h2>
+            <p class="text-xs {{ cc[1] }} opacity-70">v{{ tpl.version }}</p>
+          </div>
+        </div>
+        {% if is_installed %}
+        <span class="px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full border border-green-200">
+          ✓ Installed
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="px-6 py-5 flex-1">
+      <p class="text-sm text-gray-600 mb-4">{{ tpl.description }}</p>
+
+      <!-- Entity types included -->
+      <div class="mb-3">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+          Includes ({{ tpl.entity_types|length }} entity types)
+        </p>
+        <div class="space-y-1.5">
+          {% for et in tpl.entity_types %}
+          <div class="flex items-center space-x-2 text-sm text-gray-700">
+            <span>{{ et.icon }}</span>
+            <span class="font-medium">{{ et.name }}</span>
+            {% if et.is_lookup %}
+            <span class="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">lookup</span>
+            {% endif %}
+            {% if et.parent_slug %}
+            <span class="text-xs text-gray-400">child of {{ et.parent_slug | replace('_', ' ') }}</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Forms included -->
+      <div>
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+          Forms ({{ tpl.forms|length }})
+        </p>
+        <div class="space-y-1">
+          {% for f in tpl.forms %}
+          <p class="text-sm text-gray-600">📋 {{ f.name }}</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Action -->
+    <div class="px-6 py-4 border-t border-gray-100">
+      {% if is_installed %}
+      <div class="flex space-x-2">
+        <span class="flex-1 text-center text-sm text-gray-400 py-2">
+          Already installed
+        </span>
+        <a href="{{ url_for('applications.manage') }}"
+           class="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+          Manage
+        </a>
+      </div>
+      {% else %}
+      <form method="POST" action="{{ url_for('applications.install_template', key=tpl.key) }}">
+        <button type="submit"
+                class="w-full py-2.5 {{ cc[3] }} {{ cc[4] }} text-white text-sm font-medium rounded-xl transition-colors">
+          Install "{{ tpl.name }}"
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+  </div>
+  {% endfor %}
+</div>
+
+<div class="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-5">
+  <h3 class="font-semibold text-blue-800 mb-1">All templates are fully configurable</h3>
+  <p class="text-sm text-blue-700">
+    After installing a template, every entity type, field, and form is editable through the
+    Entity Builder and Form Builder — exactly like anything you create from scratch.
+    Templates simply save you the initial setup time.
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}{{ entity_type.name }} — PulseCore{% endblock %}
+
+{% set is_update_mode = entity_type.form_mode == 'update' %}
+
+{% block breadcrumb %}
+{% if parent_app %}
+<a href="{{ url_for('applications.index') }}" class="text-sm text-gray-500 hover:text-gray-700">Apps</a>
+<span class="text-gray-400 mx-2">/</span>
+<a href="{{ url_for('applications.index') }}" class="text-sm text-gray-500 hover:text-gray-700">{{ parent_app.name }}</a>
+<span class="text-gray-400 mx-2">/</span>
+{% endif %}
+<span class="text-sm font-medium text-gray-700">{{ entity_type.name }}</span>
+{% endblock %}
+
+{% block content %}
+
+<!-- Page header -->
+<div class="flex items-center justify-between mb-5">
+  <div class="flex items-center space-x-3">
+    <div class="w-10 h-10 flex items-center justify-center text-2xl bg-white rounded-xl border border-gray-200 shadow-sm flex-shrink-0">
+      {{ entity_type.icon or '📋' }}
+    </div>
+    <div>
+      <h1 class="text-xl font-bold text-gray-900 leading-tight">{{ entity_type.name }}</h1>
+      <p class="text-xs text-gray-400">
+        {% if is_update_mode %}
+          Search for a record to update
+        {% else %}
+          {{ records|length }} record{{ 's' if records|length != 1 }}{% if parent_app %} · {{ parent_app.name }}{% endif %}
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  {% if not is_update_mode %}
+  <a href="{{ url_for('records.create_record', entity_type_id=entity_type.id) }}"
+     class="flex items-center space-x-2 px-4 py-2 bg-[#0d4f8c] hover:bg-[#0b4070] text-white text-sm font-medium rounded-xl transition-colors shadow-sm">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    <span>New Entry</span>
+  </a>
+  {% endif %}
+</div>
+
+<!-- Search & Filter -->
+<form method="GET" class="flex flex-wrap items-center gap-2 mb-5">
+  <div class="relative flex-1 min-w-48">
+    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/>
+    </svg>
+    <input type="text" name="q" value="{{ search }}" autofocus="{{ 'autofocus' if is_update_mode else '' }}"
+           placeholder="{{ 'Search for a record to update…' if is_update_mode else 'Search records…' }}"
+           class="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500
+                  {{ 'border-blue-300 ring-1 ring-blue-200' if is_update_mode else '' }}">
+  </div>
+  {% if visible_units|length > 1 %}
+  <select name="org_unit_id"
+          class="px-3 py-2 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <option value="">All locations</option>
+    {% for unit in visible_units %}
+    <option value="{{ unit.id }}" {% if request.args.get('org_unit_id') == unit.id|string %}selected{% endif %}>
+      {{ '·' * unit.level }} {{ unit.name }}
+    </option>
+    {% endfor %}
+  </select>
+  {% endif %}
+  <button type="submit"
+          class="px-4 py-2 {{ 'bg-[#0d4f8c] hover:bg-[#0b4070] text-white' if is_update_mode else 'bg-gray-100 hover:bg-gray-200 text-gray-700' }} text-sm font-medium rounded-xl transition-colors">
+    {{ 'Find Record' if is_update_mode else 'Filter' }}
+  </button>
+  {% if search or request.args.get('org_unit_id') %}
+  <a href="{{ url_for('records.list_records', entity_type_id=entity_type.id) }}"
+     class="text-sm text-gray-400 hover:text-gray-600 px-2">Clear</a>
+  {% endif %}
+</form>
+
+<!-- Update-mode hint when no search yet -->
+{% if is_update_mode and not search and not request.args.get('org_unit_id') %}
+<div class="bg-blue-50 border border-blue-100 rounded-2xl py-14 text-center mb-5">
+  <svg class="w-10 h-10 text-blue-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/>
+  </svg>
+  <p class="text-sm font-medium text-blue-700 mb-1">Search for the record you want to update</p>
+  <p class="text-xs text-blue-400">Type a name or value in the search bar above</p>
+</div>
+{% endif %}
+
+<!-- Records table -->
+{% if records and (not is_update_mode or search or request.args.get('org_unit_id')) %}
+<div class="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+  {% if is_update_mode %}
+  <div class="px-5 py-3 bg-amber-50 border-b border-amber-100 flex items-center space-x-2">
+    <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <p class="text-xs text-amber-700 font-medium">
+      {{ records|length }} result{{ 's' if records|length != 1 }} — click a record to open its update form
+    </p>
+  </div>
+  {% endif %}
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="bg-gray-50 border-b border-gray-100">
+        <th class="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
+        {% for field in list_fields %}
+        <th class="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">{{ field.label }}</th>
+        {% endfor %}
+        <th class="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Location</th>
+        <th class="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Date</th>
+        <th class="px-5 py-3.5"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for record in records %}
+      <tr class="hover:bg-gray-50 transition-colors group {{ 'cursor-pointer' if is_update_mode }}"
+          {% if is_update_mode %}onclick="window.location='{{ url_for('records.edit_record', entity_type_id=entity_type.id, record_id=record.id) }}'"{% endif %}>
+        <td class="px-5 py-4">
+          {% if is_update_mode %}
+          <span class="font-medium text-gray-900">{{ record.display_label or ('Entry #' + record.id|string) }}</span>
+          {% else %}
+          <a href="{{ url_for('records.detail', entity_type_id=entity_type.id, record_id=record.id) }}"
+             class="font-medium text-gray-900 hover:text-blue-600 transition-colors">
+            {{ record.display_label or ('Entry #' + record.id|string) }}
+          </a>
+          {% endif %}
+        </td>
+        {% for field in list_fields %}
+        <td class="px-5 py-4 text-gray-500 hidden md:table-cell">{{ record.get_value(field.id) or '—' }}</td>
+        {% endfor %}
+        <td class="px-5 py-4 text-gray-400 text-xs hidden lg:table-cell">{{ record.org_unit.name if record.org_unit else '—' }}</td>
+        <td class="px-5 py-4 text-gray-400 text-xs hidden lg:table-cell">{{ record.created_at.strftime('%d %b %Y') if record.created_at else '—' }}</td>
+        <td class="px-5 py-4 text-right">
+          {% if is_update_mode %}
+          <span class="text-xs text-blue-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+            Update →
+          </span>
+          {% else %}
+          <div class="flex items-center justify-end space-x-3 opacity-0 group-hover:opacity-100 transition-opacity">
+            <a href="{{ url_for('records.edit_record', entity_type_id=entity_type.id, record_id=record.id) }}"
+               onclick="event.stopPropagation()"
+               class="text-xs text-blue-600 hover:text-blue-800 font-medium">Edit</a>
+            <a href="{{ url_for('records.detail', entity_type_id=entity_type.id, record_id=record.id) }}"
+               onclick="event.stopPropagation()"
+               class="text-xs text-gray-400 hover:text-gray-600">View →</a>
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% elif not is_update_mode %}
+<!-- Empty state (create mode only) -->
+<div class="bg-white rounded-2xl border-2 border-dashed border-gray-200 py-20 text-center">
+  <div class="text-5xl mb-4">{{ entity_type.icon or '📋' }}</div>
+  <h3 class="text-base font-semibold text-gray-700 mb-1">No entries yet</h3>
+  <p class="text-sm text-gray-400 mb-6">Be the first to add a {{ entity_type.name }} record.</p>
+  <a href="{{ url_for('records.create_record', entity_type_id=entity_type.id) }}"
+     class="inline-flex items-center space-x-2 px-5 py-2.5 bg-[#0d4f8c] hover:bg-[#0b4070] text-white text-sm font-medium rounded-xl transition-colors">
+    <span>+ New Entry</span>
+  </a>
+</div>
+
+{% elif is_update_mode and search %}
+<!-- No results in update mode search -->
+<div class="bg-white rounded-2xl border border-gray-200 py-14 text-center">
+  <p class="text-sm font-medium text-gray-600 mb-1">No records found for "{{ search }}"</p>
+  <p class="text-xs text-gray-400">Try a different search term or clear the filter.</p>
+</div>
+{% endif %}
+
+{% endblock %}

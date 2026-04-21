@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}Organisation Structure — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<span class="text-gray-400">Admin</span>
+<span class="text-gray-400 mx-2">/</span>
+<span class="text-sm font-medium text-gray-700">Organisation Structure</span>
+{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-5">
+  <div>
+    <h1 class="text-xl font-bold text-gray-900">Organisation Structure</h1>
+    <p class="text-gray-500 text-sm mt-0.5">Manage your hierarchical org units</p>
+  </div>
+  <div class="flex space-x-2">
+    <a href="{{ url_for('org_units.levels') }}"
+       class="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+      Level Names
+    </a>
+    <a href="{{ url_for('org_units.create') }}"
+       class="px-3 py-2 bg-[#0d4f8c] hover:bg-[#0b4070] text-white text-sm font-medium rounded-lg transition-colors">
+      + Add Root Unit
+    </a>
+  </div>
+</div>
+
+{# Level badge colors by depth #}
+{% set level_colors = [
+  'bg-[#0d4f8c] text-white',
+  'bg-[#1a6bbf] text-white',
+  'bg-[#2980d9] text-white',
+  'bg-[#5ba4e5] text-white',
+  'bg-[#8ec5f2] text-gray-800',
+  'bg-gray-400 text-white',
+] %}
+{% set border_colors = ['border-[#0d4f8c]','border-[#1a6bbf]','border-[#2980d9]','border-[#5ba4e5]','border-[#8ec5f2]','border-gray-400'] %}
+
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+    <h2 class="text-sm font-semibold text-gray-700">Hierarchy Tree</h2>
+    <div class="flex space-x-3">
+      <button onclick="expandAll()" class="text-xs text-blue-600 hover:underline">Expand all</button>
+      <span class="text-gray-300">|</span>
+      <button onclick="collapseAll()" class="text-xs text-blue-600 hover:underline">Collapse all</button>
+    </div>
+  </div>
+
+  <div id="org-tree" class="p-4">
+    {% macro render_tree(nodes, depth=0) %}
+    {% set border = border_colors[depth] if depth < border_colors|length else 'border-gray-400' %}
+    <ul class="{% if depth > 0 %}ml-7 border-l-2 {{ border }} pl-0{% endif %} space-y-1">
+      {% for node in nodes %}
+      {% set lvl_color = level_colors[node.unit.level] if node.unit.level < level_colors|length else level_colors[-1] %}
+      <li class="tree-node" id="node-{{ node.unit.id }}">
+
+        <!-- Row -->
+        <div class="flex items-center group rounded-md px-2 py-1.5 hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all">
+
+          <!-- Toggle + name -->
+          <div class="flex items-center flex-1 min-w-0 space-x-2">
+            {% if node.children %}
+            <button onclick="toggleNode('node-{{ node.unit.id }}')"
+                    class="toggle-btn w-5 h-5 flex items-center justify-center rounded text-white text-xs font-bold flex-shrink-0 bg-[#0d4f8c] hover:bg-[#0b4070] transition-colors"
+                    title="Collapse">
+              <span class="toggle-icon">−</span>
+            </button>
+            {% else %}
+            <span class="w-5 h-5 flex items-center justify-center text-gray-300 flex-shrink-0 text-sm">•</span>
+            {% endif %}
+
+            <span class="text-sm font-semibold text-gray-900 truncate">{{ node.unit.name }}</span>
+            {% if node.unit.code %}
+            <span class="text-xs text-gray-400 flex-shrink-0">[{{ node.unit.code }}]</span>
+            {% endif %}
+
+            <span class="px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 {{ lvl_color }}">
+              {{ node.unit.get_level_name() }}
+            </span>
+          </div>
+
+          <!-- Actions (always visible on hover, hidden at rest) -->
+          <div class="flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-3">
+
+            <!-- Edit button (opens inline form) -->
+            <button onclick="openEdit({{ node.unit.id }})"
+                    class="flex items-center space-x-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-xs font-medium transition-colors">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+              <span>Edit</span>
+            </button>
+
+            <!-- Archive -->
+            <form method="POST" action="{{ url_for('org_units.deactivate', unit_id=node.unit.id) }}"
+                  onsubmit="return confirm('Archive {{ node.unit.name }}?')">
+              <button type="submit"
+                      class="flex items-center space-x-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded text-xs font-medium transition-colors">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+                </svg>
+                <span>Archive</span>
+              </button>
+            </form>
+
+            <!-- Delete -->
+            <form method="POST" action="{{ url_for('org_units.delete', unit_id=node.unit.id) }}"
+                  onsubmit="return confirm('Permanently delete {{ node.unit.name }}? This cannot be undone.')">
+              <button type="submit"
+                      class="flex items-center space-x-1 px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded text-xs font-medium transition-colors">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                <span>Delete</span>
+              </button>
+            </form>
+
+          </div>
+        </div>
+
+        <!-- Inline edit form (hidden by default) -->
+        <div id="edit-{{ node.unit.id }}" class="hidden ml-7 mt-1 mb-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <form method="POST" action="{{ url_for('org_units.edit', unit_id=node.unit.id) }}" class="flex items-center space-x-2">
+            <input type="text" name="name" value="{{ node.unit.name }}" required
+                   class="flex-1 px-3 py-1.5 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <input type="text" name="code" value="{{ node.unit.code or '' }}" placeholder="Code"
+                   class="w-24 px-3 py-1.5 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <button type="submit"
+                    class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">Save</button>
+            <button type="button" onclick="closeEdit({{ node.unit.id }})"
+                    class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-white">Cancel</button>
+          </form>
+        </div>
+
+        <!-- Children -->
+        {% if node.children %}
+        <div class="tree-children" id="children-{{ node.unit.id }}">
+          {{ render_tree(node.children, depth + 1) }}
+
+          <!-- Add child button -->
+          <div class="ml-7 mt-1 mb-2">
+            <a href="{{ url_for('org_units.create', parent_id=node.unit.id) }}"
+               class="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              <span>New {{ node.children[0].unit.get_level_name() if node.children else 'child unit' }} in {{ node.unit.name }}</span>
+            </a>
+          </div>
+        </div>
+        {% else %}
+        <!-- Add first child -->
+        <div class="ml-7 mt-0.5 mb-1 hidden group-visible">
+          <a href="{{ url_for('org_units.create', parent_id=node.unit.id) }}"
+             class="inline-flex items-center space-x-1 px-3 py-1 border border-dashed border-blue-300 text-blue-500 hover:bg-blue-50 rounded-lg text-xs transition-colors">
+            <span>+</span>
+            <span>Add child of {{ node.unit.name }}</span>
+          </a>
+        </div>
+        {% endif %}
+
+      </li>
+      {% endfor %}
+    </ul>
+    {% endmacro %}
+
+    {% if tree %}
+      {{ render_tree(tree) }}
+    {% else %}
+    <div class="text-center py-16 text-gray-400">
+      <svg class="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+      </svg>
+      <p class="text-sm">No org units defined yet.</p>
+      <a href="{{ url_for('org_units.create') }}" class="mt-2 inline-block text-sm text-blue-600 hover:underline">Add root unit →</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Level legend -->
+{% if levels %}
+<div class="mt-4 bg-white rounded-xl border border-gray-200 px-5 py-4 flex items-center space-x-4">
+  <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider flex-shrink-0">Levels:</span>
+  <div class="flex flex-wrap gap-2">
+    {% for lvl in levels %}
+    {% set lc = level_colors[lvl.level] if lvl.level < level_colors|length else level_colors[-1] %}
+    <span class="px-2.5 py-1 rounded text-xs font-medium {{ lc }}">
+      {{ lvl.name }}
+    </span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleNode(id) {
+  const children = document.getElementById('children-' + id.replace('node-', ''));
+  const btn = document.querySelector('#' + id + ' .toggle-icon');
+  if (!children) return;
+  const collapsed = children.classList.toggle('hidden');
+  if (btn) btn.textContent = collapsed ? '+' : '−';
+}
+
+function openEdit(id) {
+  document.querySelectorAll('[id^="edit-"]').forEach(el => el.classList.add('hidden'));
+  document.getElementById('edit-' + id).classList.remove('hidden');
+  document.getElementById('edit-' + id).querySelector('input[name="name"]').focus();
+}
+function closeEdit(id) {
+  document.getElementById('edit-' + id).classList.add('hidden');
+}
+
+function expandAll() {
+  document.querySelectorAll('.tree-children').forEach(el => el.classList.remove('hidden'));
+  document.querySelectorAll('.toggle-icon').forEach(el => el.textContent = '−');
+}
+function collapseAll() {
+  document.querySelectorAll('.tree-children').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.toggle-icon').forEach(el => el.textContent = '+');
+}
+</script>
+{% endblock %}

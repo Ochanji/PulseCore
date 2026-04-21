@@ -1,0 +1,470 @@
+{% extends "base.html" %}
+{% block title %}{{ entity_type.name }} — Field Builder — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+{% if app_id %}
+<a href="{{ url_for('applications.builder', app_id=app_id) }}" class="text-gray-500 hover:text-gray-700">App Builder</a>
+<span class="text-gray-400 mx-2">/</span>
+{% endif %}
+<span class="text-sm font-medium text-gray-700">{{ entity_type.name }} — Fields</span>
+{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="flex items-center justify-between mb-4">
+  <div class="flex items-center space-x-3">
+    <span class="text-2xl">{{ entity_type.icon or '📋' }}</span>
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">{{ entity_type.name }}</h1>
+      <p class="text-xs text-gray-400 mt-0.5">{{ entity_type.description or 'Define the fields for this data type' }}</p>
+    </div>
+  </div>
+  <div class="flex items-center space-x-2">
+    {% if app_id %}
+    <a href="{{ url_for('applications.builder', app_id=app_id) }}"
+       class="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+      &larr; Back to App
+    </a>
+    {% endif %}
+    <button onclick="document.getElementById('entity-settings-modal').classList.remove('hidden')"
+            class="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+      Settings
+    </button>
+    <button onclick="saveFields()"
+            class="px-4 py-2 bg-[#0d4f8c] hover:bg-[#0b4070] text-white rounded-lg text-sm font-medium transition-colors">
+      Save Fields
+    </button>
+  </div>
+</div>
+
+<div class="grid grid-cols-12 gap-4">
+
+  <!-- Canvas (8 cols) -->
+  <div class="col-span-8">
+    <div class="bg-white rounded-xl border border-gray-200 overflow-visible">
+
+      <!-- Canvas toolbar -->
+      <div class="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+        <span class="text-sm font-semibold text-gray-700">
+          Fields
+          <span class="ml-1.5 px-1.5 py-0.5 bg-gray-200 text-gray-600 text-xs rounded-full" id="field-count">0</span>
+        </span>
+
+        <!-- Add Question dropdown -->
+        <div class="relative" id="add-question-wrapper">
+          <button onclick="toggleAddMenu()"
+                  class="flex items-center space-x-1.5 px-3 py-1.5 bg-[#0d4f8c] hover:bg-[#0b4070] text-white rounded-lg text-sm font-medium transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            <span>Add Question</span>
+            <svg class="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+
+          <!-- Dropdown -->
+          <div id="add-question-menu"
+               class="hidden absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-2xl border border-gray-200 py-1.5 z-50">
+
+            <!-- Text -->
+            <button onclick="addField('text')"
+                    class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+              <span class="w-6 text-center font-bold text-gray-500 text-base">T</span>
+              <span>Text</span>
+            </button>
+            <button onclick="addField('textarea')"
+                    class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+              <span class="w-6 text-center font-bold text-gray-500 text-base">T</span>
+              <span>Long Text</span>
+            </button>
+
+            <div class="my-1 border-t border-gray-100"></div>
+
+            <!-- Multiple Choice submenu -->
+            <div class="relative group/mc">
+              <button class="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700">
+                <div class="flex items-center space-x-3">
+                  <span class="w-6 text-center text-gray-500 text-xs font-bold leading-none">:=</span>
+                  <span>Multiple Choice</span>
+                </div>
+                <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </button>
+              <div class="hidden group-hover/mc:block absolute left-full top-0 ml-0.5 w-48 bg-white rounded-xl shadow-2xl border border-gray-200 py-1.5 z-50">
+                <button onclick="addField('select')" class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center text-gray-500 text-xs">&#9776;</span><span>Single Select</span>
+                </button>
+                <button onclick="addField('multi_select')" class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center text-gray-500 text-xs">&#9776;</span><span>Checkbox (Multi)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Number submenu -->
+            <div class="relative group/num">
+              <button class="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700">
+                <div class="flex items-center space-x-3">
+                  <span class="w-6 text-center font-bold text-gray-500">1</span>
+                  <span>Number</span>
+                </div>
+                <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </button>
+              <div class="hidden group-hover/num:block absolute left-full top-0 ml-0.5 w-48 bg-white rounded-xl shadow-2xl border border-gray-200 py-1.5 z-50">
+                <button onclick="addField('integer')" class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center font-bold text-gray-500">1</span><span>Integer</span>
+                </button>
+                <button onclick="addField('decimal')" class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center text-gray-500 text-xs">.0</span><span>Decimal</span>
+                </button>
+                <button onclick="addField('phone')" class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center text-gray-500 text-xs">#</span><span>Phone / Numeric ID</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Date submenu -->
+            <div class="relative group/dt">
+              <button class="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700">
+                <div class="flex items-center space-x-3">
+                  <svg class="w-4 h-4 text-gray-500 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                  <span>Date</span>
+                </div>
+                <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </button>
+              <div class="hidden group-hover/dt:block absolute left-full top-0 ml-0.5 w-44 bg-white rounded-xl shadow-2xl border border-gray-200 py-1.5 z-50">
+                <button onclick="addField('date')" class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center">&#128197;</span><span>Date</span>
+                </button>
+                <button onclick="addField('time')" class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center">&#128336;</span><span>Time</span>
+                </button>
+                <button onclick="addField('datetime')" class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center">&#128197;</span><span>Date &amp; Time</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Media submenu -->
+            <div class="relative group/med">
+              <button class="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700">
+                <div class="flex items-center space-x-3">
+                  <svg class="w-4 h-4 text-gray-500 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                  <span>Media</span>
+                </div>
+                <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </button>
+              <div class="hidden group-hover/med:block absolute left-full top-0 ml-0.5 w-44 bg-white rounded-xl shadow-2xl border border-gray-200 py-1.5 z-50">
+                <button onclick="addField('photo')" class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center">&#128247;</span><span>Photo</span>
+                </button>
+                <button onclick="addField('file')" class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center">&#128206;</span><span>File Upload</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Groups submenu -->
+            <div class="relative group/grp">
+              <button class="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700">
+                <div class="flex items-center space-x-3">
+                  <svg class="w-4 h-4 text-gray-500 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                  </svg>
+                  <span>Groups</span>
+                </div>
+                <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </button>
+              <div class="hidden group-hover/grp:block absolute left-full top-0 ml-0.5 w-44 bg-white rounded-xl shadow-2xl border border-gray-200 py-1.5 z-50">
+                <button onclick="addField('group')" class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center text-gray-500 text-xs">[]</span><span>Group</span>
+                </button>
+                <button onclick="addField('repeat_group')" class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center text-gray-500 text-xs">&#8635;</span><span>Repeat Group</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="my-1 border-t border-gray-100"></div>
+
+            <!-- Label -->
+            <button onclick="addField('label')"
+                    class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+              <span class="w-6 text-center text-gray-500 text-xs font-bold">Lb</span><span>Label</span>
+            </button>
+
+            <!-- Hidden Value -->
+            <button onclick="addField('hidden')"
+                    class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+              <svg class="w-4 h-4 text-gray-400 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29"/>
+              </svg>
+              <span>Hidden Value</span>
+            </button>
+
+            <!-- Lookup -->
+            <button onclick="addField('lookup')"
+                    class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+              <svg class="w-4 h-4 text-gray-400 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+              </svg>
+              <span>Lookup Table</span>
+            </button>
+
+            <!-- GPS -->
+            <button onclick="addField('gps')"
+                    class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+              <svg class="w-4 h-4 text-gray-400 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              <span>GPS Location</span>
+            </button>
+
+            <!-- Yes/No -->
+            <button onclick="addField('boolean')"
+                    class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+              <span class="w-6 text-center text-gray-500 text-xs">Y/N</span><span>Yes / No</span>
+            </button>
+
+            <!-- Barcode -->
+            <button onclick="addField('barcode')"
+                    class="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+              <span class="w-6 text-center text-gray-500 text-xs">&#9644;</span><span>Barcode / QR</span>
+            </button>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Field canvas -->
+      <div id="field-canvas" class="p-4 space-y-1.5 min-h-72"
+           ondragover="event.preventDefault()" ondrop="dropOnCanvas(event)">
+        {% if not fields %}
+        <div id="empty-hint" class="flex flex-col items-center justify-center h-52 border-2 border-dashed border-gray-200 rounded-xl text-center">
+          <svg class="w-10 h-10 text-gray-200 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <p class="text-gray-400 text-sm">Click "Add Question" to start building</p>
+        </div>
+        {% endif %}
+        {% for field in fields %}
+        <div class="field-card group flex items-center justify-between px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer hover:border-blue-300 transition-colors"
+             data-id="{{ field.id }}"
+             data-name="{{ field.name }}"
+             data-label="{{ field.label }}"
+             data-field-type="{{ field.field_type }}"
+             data-required="{{ 'true' if field.is_required else 'false' }}"
+             data-unique="{{ 'true' if field.is_unique else 'false' }}"
+             data-display-in-list="{{ 'true' if field.display_in_list else 'false' }}"
+             data-options="{{ field.options or '[]' }}"
+             data-lookup-entity="{{ field.lookup_entity_type_id or '' }}"
+             onclick="selectField(this)"
+             draggable="true"
+             ondragstart="dragStart(event)"
+             ondragover="event.preventDefault()"
+             ondrop="dropReorder(event)">
+          <div class="flex items-center space-x-3 min-w-0">
+            <span class="text-gray-300 cursor-grab flex-shrink-0">&#8942;&#8942;</span>
+            <span class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded bg-white border border-gray-200 text-xs font-bold text-gray-500">
+              {% if field.field_type in ('text','textarea') %}T
+              {% elif field.field_type in ('integer','decimal') %}1
+              {% elif field.field_type == 'phone' %}#
+              {% elif field.field_type in ('select','multi_select') %}&#9776;
+              {% elif field.field_type in ('date','datetime') %}&#128197;
+              {% elif field.field_type == 'time' %}&#128336;
+              {% elif field.field_type == 'boolean' %}Y/N
+              {% elif field.field_type == 'photo' %}&#128247;
+              {% elif field.field_type == 'file' %}&#128206;
+              {% elif field.field_type == 'gps' %}&#128205;
+              {% elif field.field_type == 'lookup' %}&#128279;
+              {% elif field.field_type == 'label' %}Lb
+              {% elif field.field_type == 'hidden' %}&#128065;
+              {% elif field.field_type == 'barcode' %}&#9644;
+              {% elif field.field_type == 'rating' %}&#9733;
+              {% elif field.field_type in ('group','repeat_group') %}[]
+              {% else %}?{% endif %}
+            </span>
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-gray-900 truncate">{{ field.label }}</p>
+              <p class="text-xs text-gray-400">{{ field.field_type.replace('_',' ') }}</p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-1 flex-shrink-0 ml-2">
+            {% if field.is_required %}<span class="text-xs bg-red-50 text-red-500 border border-red-200 px-1.5 py-0.5 rounded">req</span>{% endif %}
+            {% if field.display_in_list %}<span class="text-xs bg-green-50 text-green-600 border border-green-200 px-1.5 py-0.5 rounded">list</span>{% endif %}
+            <button onclick="event.stopPropagation(); removeField(this.closest('.field-card'))"
+                    class="ml-1 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity text-base leading-none">&times;</button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Properties Panel (4 cols) -->
+  <div class="col-span-4">
+    <div class="bg-white rounded-xl border border-gray-200 p-4 sticky top-20" id="props-panel">
+      <h3 class="text-sm font-semibold text-gray-700 mb-3">Field Properties</h3>
+      <div id="no-selection" class="text-center py-10 text-gray-400 text-sm">
+        <svg class="w-8 h-8 text-gray-200 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+        </svg>
+        Click a field to edit its properties
+      </div>
+      <div id="field-props" class="hidden space-y-3">
+
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Question Label</label>
+          <input type="text" id="prop-label"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 placeholder="e.g. Date of Birth"
+                 oninput="updateSelectedField()">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Field Type</label>
+          <select id="prop-type"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  onchange="updateSelectedField(); toggleTypeExtras()">
+            {% for ft_key, ft_label in field_types %}
+            <option value="{{ ft_key }}">{{ ft_label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Options (select/multi_select) -->
+        <div id="options-section" class="hidden">
+          <label class="block text-xs font-medium text-gray-600 mb-1">Options <span class="text-gray-400 font-normal">(one per line)</span></label>
+          <textarea id="prop-options" rows="5"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                    oninput="updateSelectedField()" placeholder="Option A&#10;Option B&#10;Option C"></textarea>
+        </div>
+
+        <!-- Lookup entity -->
+        <div id="lookup-section" class="hidden">
+          <label class="block text-xs font-medium text-gray-600 mb-1">Reference Entity Type</label>
+          <select id="prop-lookup-entity"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  onchange="updateSelectedField()">
+            <option value="">— Select entity type —</option>
+            {% for et in all_entity_types %}
+            <option value="{{ et.id }}">{{ et.icon or '📋' }} {{ et.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Constraints -->
+        <div class="border border-gray-100 rounded-lg p-3 space-y-2.5 bg-gray-50">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Constraints</p>
+          <label class="flex items-center space-x-2.5 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" id="prop-required" class="h-4 w-4 text-blue-600 rounded border-gray-300" onchange="updateSelectedField()">
+            <span>Required</span>
+          </label>
+          <label class="flex items-center space-x-2.5 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" id="prop-unique" class="h-4 w-4 text-blue-600 rounded border-gray-300" onchange="updateSelectedField()">
+            <span>Unique values only</span>
+          </label>
+          <label class="flex items-center space-x-2.5 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" id="prop-display-in-list" class="h-4 w-4 text-blue-600 rounded border-gray-300" onchange="updateSelectedField()">
+            <span>Show in record list</span>
+          </label>
+        </div>
+
+        <button onclick="updateSelectedField()"
+                class="w-full px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-sm font-medium transition-colors">
+          Apply
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden save form -->
+<form id="save-fields-form" method="POST"
+      action="{{ url_for('entities.builder', entity_id=entity_type.id) }}{% if app_id %}?app_id={{ app_id }}{% endif %}">
+  <input type="hidden" name="action" value="save_fields">
+  <input type="hidden" name="fields_data" id="fields-data-input">
+</form>
+
+<!-- Entity Settings Modal -->
+<div id="entity-settings-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-semibold">Data Type Settings</h2>
+      <button onclick="document.getElementById('entity-settings-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-lg">&times;</button>
+    </div>
+    <form method="POST" action="{{ url_for('entities.builder', entity_id=entity_type.id) }}" class="space-y-4">
+      <input type="hidden" name="action" value="update_entity">
+      <div class="grid grid-cols-4 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Icon</label>
+          <input type="text" name="icon" value="{{ entity_type.icon or '' }}" maxlength="5"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="col-span-3">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+          <input type="text" name="name" value="{{ entity_type.name }}" required
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+        <textarea name="description" rows="2"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">{{ entity_type.description or '' }}</textarea>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Parent Entity Type</label>
+        <select name="parent_entity_type_id"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+          <option value="">None (top-level)</option>
+          {% for et in all_entity_types %}
+          {% if et.id != entity_type.id %}
+          <option value="{{ et.id }}" {% if entity_type.parent_entity_type_id == et.id %}selected{% endif %}>{{ et.name }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      <label class="flex items-center space-x-2 text-sm text-gray-700">
+        <input type="checkbox" name="is_lookup" class="h-4 w-4 text-blue-600 rounded"
+               {% if entity_type.is_lookup %}checked{% endif %}>
+        <span>Use as a lookup / reference list</span>
+      </label>
+      <div class="flex space-x-3 pt-1">
+        <button type="button" onclick="document.getElementById('entity-settings-modal').classList.add('hidden')"
+                class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+        <button type="submit"
+                class="flex-1 px-4 py-2 bg-[#0d4f8c] hover:bg-[#0b4070] text-white rounded-lg text-sm font-medium">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/entity_builder.js') }}"></script>
+{% endblock %}

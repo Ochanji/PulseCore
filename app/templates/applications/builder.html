@@ -1,0 +1,997 @@
+{% extends "base.html" %}
+{% block title %}{{ app.name }} — Builder — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<a href="{{ url_for('applications.manage') }}" class="text-gray-500 hover:text-gray-700">Applications</a>
+<span class="text-gray-400 mx-2">/</span>
+<span class="text-sm font-medium text-gray-700">{{ app.name }}</span>
+{% endblock %}
+
+{% block content %}
+
+<!-- App Header -->
+<div class="flex items-center justify-between mb-4">
+  <div class="flex items-center space-x-3">
+    <div class="text-2xl w-10 h-10 flex items-center justify-center bg-white rounded-xl border border-gray-200 shadow-sm flex-shrink-0">
+      {{ app.icon or '📦' }}
+    </div>
+    <div>
+      <h1 class="text-lg font-bold text-gray-900 leading-none">{{ app.name }}</h1>
+      {% if app.description %}
+      <p class="text-xs text-gray-400 mt-0.5">{{ app.description }}</p>
+      {% endif %}
+    </div>
+  </div>
+  <div class="flex items-center space-x-2">
+    <a href="{{ url_for('applications.edit_app', app_id=app.id) }}"
+       class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs text-gray-600 hover:bg-gray-50 transition-colors">
+      Edit Details
+    </a>
+    <a href="{{ url_for('applications.index') }}"
+       class="px-3 py-1.5 bg-[#0d4f8c] hover:bg-[#0b4070] text-white text-xs font-medium rounded-lg transition-colors">
+      Launch App
+    </a>
+  </div>
+</div>
+
+<!-- Two-panel workspace -->
+<div class="flex gap-4" style="min-height: calc(100vh - 160px);">
+
+  <!-- Left: Structure sidebar -->
+  <div class="w-64 flex-shrink-0 space-y-3">
+
+    <!-- Forms -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+        <span class="text-xs font-semibold text-gray-700 uppercase tracking-wider">Forms</span>
+        <button onclick="toggleAddPanel('add-dt-panel')"
+                class="w-6 h-6 flex items-center justify-center bg-[#0d4f8c] hover:bg-[#0b4070] text-white rounded-md transition-colors text-sm font-bold leading-none">+</button>
+      </div>
+
+      <!-- Add Form inline -->
+      <div id="add-dt-panel" class="hidden border-b border-gray-200 bg-blue-50 px-4 py-3">
+        <form method="POST" action="{{ url_for('applications.add_entity', app_id=app.id) }}" class="space-y-2">
+          <div class="flex gap-2">
+            <input type="text" name="icon" value="📋" maxlength="4"
+                   class="w-10 px-1 py-1.5 border border-gray-300 rounded-lg text-xs text-center bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+            <input type="text" name="name" required autofocus placeholder="Form name…"
+                   class="flex-1 px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+          </div>
+          <input type="text" name="description" placeholder="Description (optional)"
+                 class="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+          <div class="flex gap-2">
+            <button type="submit" class="flex-1 py-1.5 bg-[#0d4f8c] text-white rounded-lg text-xs font-medium hover:bg-[#0b4070] transition-colors">
+              Create
+            </button>
+            <button type="button" onclick="toggleAddPanel('add-dt-panel')"
+                    class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs text-gray-600 hover:bg-white transition-colors">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {% if linked_ets %}
+      <div id="dt-list" class="divide-y divide-gray-100">
+        {% for et in linked_ets %}
+        <div id="sidebar-et-{{ et.id }}"
+             onclick="selectPanel('et', {{ et.id }})"
+             class="sidebar-item px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-gray-50 group transition-colors">
+          <div class="flex items-center space-x-2.5 min-w-0">
+            <span class="text-base flex-shrink-0">{{ et.icon or '📋' }}</span>
+            <div class="min-w-0">
+              <p class="text-xs font-medium text-gray-900 truncate">{{ et.name }}</p>
+              <p class="text-xs text-gray-400">{{ et.fields.count() }} field{{ 's' if et.fields.count() != 1 }}</p>
+            </div>
+          </div>
+          <button onclick="event.stopPropagation(); confirmRemoveEntity({{ et.id }}, '{{ et.name }}')"
+                  class="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 text-base ml-1 flex-shrink-0 transition-opacity leading-none">&times;</button>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div id="dt-empty" class="px-4 py-6 text-center">
+        <p class="text-xs text-gray-400">No forms yet.</p>
+        <button onclick="toggleAddPanel('add-dt-panel')"
+                class="mt-2 text-xs text-blue-600 hover:underline">Add one</button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Summary -->
+    <div class="bg-white rounded-xl border border-gray-200 px-4 py-3">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Summary</p>
+      <div class="space-y-1.5 text-xs">
+        <div class="flex justify-between">
+          <span class="text-gray-500">Forms</span>
+          <span class="font-semibold text-gray-900">{{ linked_ets|length }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-500">Total Fields</span>
+          <span class="font-semibold text-gray-900" id="total-field-count">
+            {% set total = namespace(n=0) %}{% for et in linked_ets %}{% set total.n = total.n + et.fields.count() %}{% endfor %}{{ total.n }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right: Editor panel -->
+  <div class="flex-1 min-w-0">
+
+    <!-- Overview panel (default) -->
+    <div id="panel-overview" class="editor-panel bg-white rounded-xl border border-gray-200 flex flex-col items-center justify-center h-full min-h-96 text-center p-10">
+      <div class="text-5xl mb-4">{{ app.icon or '📦' }}</div>
+      <h2 class="text-lg font-bold text-gray-800">{{ app.name }}</h2>
+      <p class="text-sm text-gray-400 mt-1 mb-6 max-w-xs">
+        Select a form from the left to edit its fields, or add a new one to get started.
+      </p>
+      {% if not linked_ets %}
+      <button onclick="toggleAddPanel('add-dt-panel')"
+              class="px-5 py-2.5 bg-[#0d4f8c] text-white rounded-xl text-sm font-medium hover:bg-[#0b4070] transition-colors">
+        Add First Form
+      </button>
+      {% endif %}
+    </div>
+
+    <!-- Field Builder panel (shared, populated by JS) -->
+    <div id="panel-field-builder" class="editor-panel hidden flex flex-col" style="min-height: calc(100vh - 200px);">
+
+      <!-- Field builder header -->
+      <div class="bg-white rounded-t-xl border border-gray-200 border-b-0 flex-shrink-0">
+        <div class="px-5 py-3.5 flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <span id="fb-icon" class="text-xl"></span>
+            <div>
+              <h2 id="fb-name" class="text-sm font-bold text-gray-900"></h2>
+              <p id="fb-desc" class="text-xs text-gray-400"></p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="text-xs text-gray-400 mr-1"><span id="fb-field-count">0</span> fields</span>
+            <button onclick="saveFields()"
+                    class="px-4 py-1.5 bg-[#0d4f8c] hover:bg-[#0b4070] text-white rounded-lg text-xs font-medium transition-colors">
+              Save Fields
+            </button>
+          </div>
+        </div>
+        <!-- Form settings bar -->
+        <form id="form-settings-form" method="POST" action=""
+              class="px-5 py-2.5 border-t border-gray-100 bg-gray-50 flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Form Type</span>
+            <div class="flex rounded-lg overflow-hidden border border-gray-200 text-xs">
+              <button type="button" id="mode-btn-create" onclick="setFormMode('create')"
+                      class="mode-btn px-3 py-1.5 font-medium transition-colors">
+                New Entry
+              </button>
+              <button type="button" id="mode-btn-update" onclick="setFormMode('update')"
+                      class="mode-btn px-3 py-1.5 font-medium transition-colors">
+                Update Record
+              </button>
+            </div>
+            <input type="hidden" id="form-mode-input" name="form_mode" value="create">
+            <span class="text-xs text-gray-400" id="form-mode-hint">Creates a new record each submission</span>
+          </div>
+          <button type="submit"
+                  class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs text-gray-600 hover:bg-white transition-colors flex-shrink-0">
+            Save Settings
+          </button>
+        </form>
+      </div>
+
+      <!-- Field builder body: canvas + properties -->
+      <div class="flex flex-1 gap-0 min-h-0">
+
+        <!-- Canvas -->
+        <div class="flex-1 bg-white border border-gray-200 border-r-0 overflow-auto">
+          <!-- Toolbar -->
+          <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50 flex items-center justify-between sticky top-0 z-10">
+            <span class="text-xs font-semibold text-gray-600">Questions</span>
+
+            <!-- Add Question dropdown -->
+            <div class="relative" id="add-question-wrapper">
+              <button onclick="toggleAddMenu()"
+                      class="flex items-center space-x-1 px-3 py-1.5 bg-[#0d4f8c] hover:bg-[#0b4070] text-white rounded-lg text-xs font-medium transition-colors">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                <span>Add Question</span>
+                <svg class="w-2.5 h-2.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </button>
+
+              <div id="add-question-menu"
+                   class="hidden absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-2xl border border-gray-200 py-1.5 z-50">
+
+                <button onclick="addField('text')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center font-bold text-gray-500">T</span><span>Text</span>
+                </button>
+                <button onclick="addField('textarea')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center font-bold text-gray-500 text-xs">¶</span><span>Long Text</span>
+                </button>
+
+                <div class="my-1 border-t border-gray-100"></div>
+
+                <div class="relative group/mc">
+                  <button class="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700">
+                    <div class="flex items-center space-x-3">
+                      <span class="w-5 text-center text-gray-500 text-xs font-bold">:=</span><span>Multiple Choice</span>
+                    </div>
+                    <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                  <div class="hidden group-hover/mc:block absolute right-full top-0 mr-0.5 w-48 bg-white rounded-xl shadow-2xl border border-gray-200 py-1.5 z-50">
+                    <button onclick="addField('select')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                      <span class="w-5 text-center text-gray-500 text-xs">&#9776;</span><span>Single Select</span>
+                    </button>
+                    <button onclick="addField('multi_select')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                      <span class="w-5 text-center text-gray-500 text-xs">&#9776;</span><span>Checkbox (Multi)</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="relative group/num">
+                  <button class="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700">
+                    <div class="flex items-center space-x-3">
+                      <span class="w-5 text-center font-bold text-gray-500">1</span><span>Number</span>
+                    </div>
+                    <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                  <div class="hidden group-hover/num:block absolute right-full top-0 mr-0.5 w-48 bg-white rounded-xl shadow-2xl border border-gray-200 py-1.5 z-50">
+                    <button onclick="addField('integer')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                      <span class="w-5 text-center font-bold text-gray-500">1</span><span>Integer</span>
+                    </button>
+                    <button onclick="addField('decimal')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                      <span class="w-5 text-center text-gray-500 text-xs">.0</span><span>Decimal</span>
+                    </button>
+                    <button onclick="addField('phone')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                      <span class="w-5 text-center text-gray-500 text-xs">#</span><span>Phone / ID</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="relative group/dt">
+                  <button class="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700">
+                    <div class="flex items-center space-x-3">
+                      <span class="w-5 text-center text-gray-500 text-xs">&#128197;</span><span>Date / Time</span>
+                    </div>
+                    <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                  <div class="hidden group-hover/dt:block absolute right-full top-0 mr-0.5 w-44 bg-white rounded-xl shadow-2xl border border-gray-200 py-1.5 z-50">
+                    <button onclick="addField('date')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                      <span class="w-5 text-center">&#128197;</span><span>Date</span>
+                    </button>
+                    <button onclick="addField('time')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                      <span class="w-5 text-center">&#128336;</span><span>Time</span>
+                    </button>
+                    <button onclick="addField('datetime')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                      <span class="w-5 text-center">&#128197;</span><span>Date &amp; Time</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="relative group/med">
+                  <button class="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700">
+                    <div class="flex items-center space-x-3">
+                      <span class="w-5 text-center">&#128247;</span><span>Media</span>
+                    </div>
+                    <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                  <div class="hidden group-hover/med:block absolute right-full top-0 mr-0.5 w-44 bg-white rounded-xl shadow-2xl border border-gray-200 py-1.5 z-50">
+                    <button onclick="addField('photo')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                      <span class="w-5 text-center">&#128247;</span><span>Photo</span>
+                    </button>
+                    <button onclick="addField('file')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                      <span class="w-5 text-center">&#128206;</span><span>File Upload</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="relative group/grp">
+                  <button class="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700">
+                    <div class="flex items-center space-x-3">
+                      <span class="w-5 text-center text-gray-500 text-xs font-mono">[]</span><span>Groups</span>
+                    </div>
+                    <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                  <div class="hidden group-hover/grp:block absolute right-full top-0 mr-0.5 w-44 bg-white rounded-xl shadow-2xl border border-gray-200 py-1.5 z-50">
+                    <button onclick="addField('group')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                      <span class="w-5 text-center text-gray-500 text-xs font-mono">[]</span><span>Group</span>
+                    </button>
+                    <button onclick="addField('repeat_group')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                      <span class="w-5 text-center text-gray-500 text-xs">&#8635;</span><span>Repeat Group</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="my-1 border-t border-gray-100"></div>
+
+                <button onclick="addField('boolean')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center text-gray-500 text-xs">Y/N</span><span>Yes / No</span>
+                </button>
+                <button onclick="addField('gps')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center">&#128205;</span><span>GPS Location</span>
+                </button>
+                <button onclick="addField('lookup')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center">&#128279;</span><span>Lookup Table</span>
+                </button>
+                <button onclick="addField('barcode')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center text-gray-500 text-xs">&#9644;</span><span>Barcode / QR</span>
+                </button>
+                <button onclick="addField('rating')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center text-yellow-400 text-xs">&#9733;</span><span>Rating</span>
+                </button>
+                <button onclick="addField('label')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center text-gray-500 text-xs font-bold">Lb</span><span>Label</span>
+                </button>
+                <button onclick="addField('hidden')" class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 space-x-3">
+                  <span class="w-5 text-center text-gray-400 text-xs">&#128065;</span><span>Hidden Value</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Field canvas -->
+          <div id="field-canvas" class="p-3 space-y-1.5 min-h-64"
+               ondragover="event.preventDefault()" ondrop="dropOnCanvas(event)">
+            <div id="empty-hint" class="hidden flex flex-col items-center justify-center h-48 border-2 border-dashed border-gray-200 rounded-xl text-center">
+              <p class="text-gray-400 text-sm">Click "Add Question" to start building</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Properties panel -->
+        <div class="w-80 flex-shrink-0 bg-white border border-gray-200 rounded-br-xl flex flex-col overflow-hidden">
+
+          <!-- Tabs -->
+          <div class="flex border-b border-gray-200 bg-gray-50 flex-shrink-0">
+            <button id="tab-question" onclick="switchPropTab('question')"
+                    class="prop-tab flex-1 py-2.5 text-xs font-semibold text-blue-700 border-b-2 border-blue-600 bg-white transition-colors">
+              Question
+            </button>
+            <button id="tab-logic" onclick="switchPropTab('logic')"
+                    class="prop-tab flex-1 py-2.5 text-xs font-semibold text-gray-500 hover:text-gray-700 border-b-2 border-transparent transition-colors">
+              Logic
+            </button>
+          </div>
+
+          <div id="no-selection" class="px-4 py-10 text-center text-gray-400 text-xs flex-1">
+            Click a field to edit its properties
+          </div>
+
+          <!-- Question tab -->
+          <div id="field-props" class="hidden overflow-auto flex-1">
+            <div id="tab-pane-question" class="px-4 py-3 space-y-3">
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Question Label</label>
+                <input type="text" id="prop-label"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="e.g. Date of Visit" oninput="updateSelectedField()">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Field Type</label>
+                <select id="prop-type"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        onchange="updateSelectedField(); toggleTypeExtras()">
+                  {% for ft_key, ft_label in field_types %}
+                  <option value="{{ ft_key }}">{{ ft_label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <!-- Options (select/multi_select) -->
+              <div id="options-section" class="hidden">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Options <span class="text-gray-400 font-normal">(one per line)</span></label>
+                <textarea id="prop-options" rows="5"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                          oninput="updateSelectedField()" placeholder="Option A&#10;Option B&#10;Option C"></textarea>
+              </div>
+
+              <!-- Lookup source (lookup type) -->
+              <div id="lookup-section" class="hidden space-y-2">
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Lookup Source</label>
+                  <select id="prop-lookup-source"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          onchange="updateSelectedField(); toggleLookupSource()">
+                    <option value="entity">Records (another data type)</option>
+                    <option value="org_unit">Organisation Units</option>
+                    <option value="user">Users</option>
+                  </select>
+                </div>
+                <!-- Entity type picker (when source=entity) -->
+                <div id="lookup-entity-row">
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Data Type</label>
+                  <select id="prop-lookup-entity"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          onchange="updateSelectedField()">
+                    <option value="">— Select data type —</option>
+                    {% for et in all_entity_types %}
+                    <option value="{{ et.id }}">{{ et.icon or '📋' }} {{ et.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <!-- Org unit info (when source=org_unit) -->
+                <div id="lookup-orgunit-row" class="hidden">
+                  <p class="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                    Will present a searchable list of organisation units from your hierarchy.
+                  </p>
+                </div>
+                <!-- User info (when source=user) -->
+                <div id="lookup-user-row" class="hidden">
+                  <p class="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                    Will present a list of active users in your organisation.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Constraints -->
+              <div class="border border-gray-100 rounded-lg p-3 space-y-2 bg-gray-50">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Constraints</p>
+                <label class="flex items-center space-x-2 text-xs text-gray-700 cursor-pointer">
+                  <input type="checkbox" id="prop-required" class="h-3.5 w-3.5 text-blue-600 rounded border-gray-300" onchange="updateSelectedField()">
+                  <span>Required</span>
+                </label>
+                <label class="flex items-center space-x-2 text-xs text-gray-700 cursor-pointer">
+                  <input type="checkbox" id="prop-unique" class="h-3.5 w-3.5 text-blue-600 rounded border-gray-300" onchange="updateSelectedField()">
+                  <span>Unique values only</span>
+                </label>
+                <label class="flex items-center space-x-2 text-xs text-gray-700 cursor-pointer">
+                  <input type="checkbox" id="prop-display-in-list" class="h-3.5 w-3.5 text-blue-600 rounded border-gray-300" onchange="updateSelectedField()">
+                  <span>Show in record list</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Logic tab pane -->
+            <div id="tab-pane-logic" class="hidden px-4 py-3 space-y-4">
+
+              <!-- Default Value -->
+              <div>
+                <label class="block text-xs font-semibold text-gray-700 mb-1">Default Value</label>
+                <p class="text-xs text-gray-400 mb-1.5">Pre-fill this field when a new record is created.</p>
+                <input type="text" id="prop-default-value"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                       placeholder="e.g. Kenya, or {today}" oninput="updateSelectedField()">
+                <p class="text-xs text-gray-400 mt-1">Use <code class="bg-gray-100 px-1 rounded">{today}</code>, <code class="bg-gray-100 px-1 rounded">{user}</code>, <code class="bg-gray-100 px-1 rounded">{org_unit}</code> for dynamic values.</p>
+              </div>
+
+              <!-- Display Condition -->
+              <div>
+                <label class="block text-xs font-semibold text-gray-700 mb-1">Display Condition</label>
+                <p class="text-xs text-gray-400 mb-1.5">Only show this field when a condition is met.</p>
+                <div class="space-y-1.5">
+                  <div class="flex items-center space-x-1.5">
+                    <span class="text-xs text-gray-500 w-8 flex-shrink-0">If</span>
+                    <input type="text" id="prop-cond-field"
+                           class="flex-1 px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                           placeholder="field_name" oninput="updateCondition()">
+                  </div>
+                  <div class="flex items-center space-x-1.5">
+                    <select id="prop-cond-op"
+                            class="flex-1 px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none bg-white"
+                            onchange="updateCondition()">
+                      <option value="==">equals (==)</option>
+                      <option value="!=">not equals (!=)</option>
+                      <option value="contains">contains</option>
+                      <option value=">">greater than (&gt;)</option>
+                      <option value="<">less than (&lt;)</option>
+                      <option value="is_empty">is empty</option>
+                      <option value="is_not_empty">is not empty</option>
+                    </select>
+                  </div>
+                  <div class="flex items-center space-x-1.5" id="cond-value-row">
+                    <input type="text" id="prop-cond-value"
+                           class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                           placeholder="value" oninput="updateCondition()">
+                  </div>
+                </div>
+                <button onclick="clearCondition()" class="mt-1.5 text-xs text-red-400 hover:text-red-600">Clear condition</button>
+              </div>
+
+              <!-- Calculated Formula -->
+              <div>
+                <label class="block text-xs font-semibold text-gray-700 mb-1">Calculated Formula</label>
+                <p class="text-xs text-gray-400 mb-1.5">Auto-compute this field's value. Use <code class="bg-gray-100 px-1 rounded">{field_name}</code> to reference other fields.</p>
+                <input type="text" id="prop-formula"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                       placeholder="e.g. {doses_administered} + {doses_wasted}" oninput="updateSelectedField()">
+                <div class="mt-2 bg-gray-50 rounded-lg p-2" id="formula-fields-hint">
+                  <p class="text-xs text-gray-500 font-medium mb-1">Available fields:</p>
+                  <div id="formula-field-list" class="flex flex-wrap gap-1"></div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+  </div>
+</div>
+
+<!-- Hidden save form for field builder -->
+<form id="save-fields-form" method="POST" action="">
+  <input type="hidden" name="fields_data" id="fields-data-input">
+</form>
+
+<!-- Remove entity confirm form -->
+<form id="remove-entity-form" method="POST" action="" class="hidden">
+</form>
+
+<!-- Entity data for JS -->
+<script>
+const etFieldsMap = {{ et_fields_map_json | safe }};
+const appId = {{ app.id }};
+let currentEtId = null;
+let selectedCard = null;
+let dragSource = null;
+
+// ── Panel switching ──────────────────────────────────────────────────────────
+
+function selectPanel(type, id) {
+  // Hide all panels
+  document.querySelectorAll('.editor-panel').forEach(p => p.classList.add('hidden'));
+  document.querySelectorAll('.sidebar-item').forEach(s => {
+    s.classList.remove('bg-blue-50', 'border-l-2', 'border-l-blue-500');
+  });
+
+  if (type === 'et') {
+    document.getElementById('panel-field-builder').classList.remove('hidden');
+    const sidebar = document.getElementById(`sidebar-et-${id}`);
+    if (sidebar) sidebar.classList.add('bg-blue-50', 'border-l-2', 'border-l-blue-500');
+    loadEntityIntoBuilder(id);
+  }
+}
+
+function loadEntityIntoBuilder(etId) {
+  currentEtId = etId;
+  const data = etFieldsMap[etId];
+  if (!data) return;
+
+  document.getElementById('fb-icon').textContent = data.icon || '📋';
+  document.getElementById('fb-name').textContent = data.name;
+  document.getElementById('fb-desc').textContent = data.description || '';
+
+  // Update save actions
+  document.getElementById('save-fields-form').action = `/apps/${appId}/entity/${etId}/save-fields`;
+  document.getElementById('form-settings-form').action = `/apps/${appId}/entity/${etId}/settings`;
+
+  // Set form mode
+  setFormMode(data.form_mode || 'create');
+
+  // Reset selection
+  selectedCard = null;
+  document.getElementById('no-selection').classList.remove('hidden');
+  document.getElementById('field-props').classList.add('hidden');
+
+  // Render fields
+  const canvas = document.getElementById('field-canvas');
+  canvas.innerHTML = '';
+
+  if (data.fields.length === 0) {
+    const hint = document.createElement('div');
+    hint.id = 'empty-hint';
+    hint.className = 'flex flex-col items-center justify-center h-48 border-2 border-dashed border-gray-200 rounded-xl text-center';
+    hint.innerHTML = '<p class="text-gray-400 text-sm">Click "Add Question" to start building</p>';
+    canvas.appendChild(hint);
+  } else {
+    data.fields.forEach(f => renderFieldCard(f));
+  }
+  updateFieldCount();
+}
+
+// ── Field rendering ──────────────────────────────────────────────────────────
+
+function renderFieldCard(f) {
+  const canvas = document.getElementById('field-canvas');
+  const hint = document.getElementById('empty-hint');
+  if (hint) hint.remove();
+
+  const card = document.createElement('div');
+  card.className = 'field-card group flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer hover:border-blue-300 transition-colors';
+  card.dataset.id = f.id || '';
+  card.dataset.name = f.name || '';
+  card.dataset.label = f.label || '';
+  card.dataset.fieldType = f.field_type || 'text';
+  card.dataset.required = f.is_required ? 'true' : 'false';
+  card.dataset.unique = f.is_unique ? 'true' : 'false';
+  card.dataset.displayInList = f.display_in_list ? 'true' : 'false';
+  card.dataset.options = JSON.stringify(f.options || []);
+  card.dataset.lookupEntity = f.lookup_entity_type_id || '';
+  card.dataset.lookupSource = f.lookup_source || 'entity';
+  card.dataset.defaultValue = f.default_value || '';
+  card.dataset.calculatedFormula = f.calculated_formula || '';
+  card.dataset.displayCondition = f.display_condition || '';
+  card.draggable = true;
+  card.setAttribute('ondragstart', 'dragStart(event)');
+  card.setAttribute('ondragover', 'event.preventDefault()');
+  card.setAttribute('ondrop', 'dropReorder(event)');
+  card.setAttribute('onclick', 'selectField(this)');
+
+  const icon = fieldTypeIcon(f.field_type);
+  const reqBadge = f.is_required ? '<span class="text-xs bg-red-50 text-red-500 border border-red-200 px-1.5 py-0.5 rounded">req</span>' : '';
+  const listBadge = f.display_in_list ? '<span class="text-xs bg-green-50 text-green-600 border border-green-200 px-1.5 py-0.5 rounded">list</span>' : '';
+  const condBadge = f.display_condition ? '<span class="text-xs bg-purple-50 text-purple-600 border border-purple-200 px-1.5 py-0.5 rounded">if</span>' : '';
+  const formulaBadge = f.calculated_formula ? '<span class="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 px-1.5 py-0.5 rounded">=</span>' : '';
+
+  card.innerHTML = `
+    <div class="flex items-center space-x-2.5 min-w-0">
+      <span class="text-gray-300 cursor-grab flex-shrink-0 text-sm">&#8942;&#8942;</span>
+      <span class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded bg-white border border-gray-200 text-xs font-bold text-gray-500">${icon}</span>
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-gray-900 truncate">${f.label || '(unnamed)'}</p>
+        <p class="text-xs text-gray-400">${(f.field_type || '').replace(/_/g,' ')}</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-1 flex-shrink-0 ml-2">
+      ${formulaBadge}${condBadge}${listBadge}${reqBadge}
+      <button onclick="event.stopPropagation(); removeField(this.closest('.field-card'))"
+              class="ml-1 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity text-base leading-none">&times;</button>
+    </div>`;
+
+  canvas.appendChild(card);
+}
+
+function addField(fieldType) {
+  document.getElementById('add-question-menu').classList.add('hidden');
+  const f = {
+    id: '', name: '', label: fieldTypeLabel(fieldType),
+    field_type: fieldType, is_required: false, is_unique: false,
+    display_in_list: false, options: [], lookup_entity_type_id: null,
+    lookup_source: 'entity', default_value: '', calculated_formula: '', display_condition: ''
+  };
+  renderFieldCard(f);
+  const cards = document.querySelectorAll('#field-canvas .field-card');
+  selectField(cards[cards.length - 1]);
+  updateFieldCount();
+}
+
+// ── Drag reorder ─────────────────────────────────────────────────────────────
+
+function dragStart(e) {
+  dragSource = e.currentTarget;
+  e.dataTransfer.setData('source', 'canvas');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function dropOnCanvas(e) {
+  e.preventDefault();
+}
+
+function dropReorder(e) {
+  e.preventDefault();
+  if (!dragSource || e.currentTarget === dragSource) return;
+  const canvas = document.getElementById('field-canvas');
+  const cards = [...canvas.querySelectorAll('.field-card')];
+  const srcIdx = cards.indexOf(dragSource);
+  const tgtIdx = cards.indexOf(e.currentTarget);
+  if (srcIdx < tgtIdx) e.currentTarget.after(dragSource);
+  else e.currentTarget.before(dragSource);
+}
+
+// ── Properties panel tabs ────────────────────────────────────────────────────
+
+function switchPropTab(tab) {
+  ['question','logic'].forEach(t => {
+    document.getElementById(`tab-${t}`).classList.toggle('text-blue-700', t === tab);
+    document.getElementById(`tab-${t}`).classList.toggle('border-blue-600', t === tab);
+    document.getElementById(`tab-${t}`).classList.toggle('bg-white', t === tab);
+    document.getElementById(`tab-${t}`).classList.toggle('text-gray-500', t !== tab);
+    document.getElementById(`tab-${t}`).classList.toggle('border-transparent', t !== tab);
+    document.getElementById(`tab-pane-${t}`).classList.toggle('hidden', t !== tab);
+  });
+  if (tab === 'logic') updateFormulaHint();
+}
+
+// ── Properties panel ──────────────────────────────────────────────────────────
+
+function selectField(card) {
+  document.querySelectorAll('.field-card').forEach(c =>
+    c.classList.remove('border-blue-400', 'bg-blue-50'));
+  card.classList.add('border-blue-400', 'bg-blue-50');
+  selectedCard = card;
+
+  document.getElementById('no-selection').classList.add('hidden');
+  document.getElementById('field-props').classList.remove('hidden');
+  switchPropTab('question');
+
+  // Question tab
+  document.getElementById('prop-label').value = card.dataset.label || '';
+  document.getElementById('prop-type').value = card.dataset.fieldType || 'text';
+  document.getElementById('prop-required').checked = card.dataset.required === 'true';
+  document.getElementById('prop-unique').checked = card.dataset.unique === 'true';
+  document.getElementById('prop-display-in-list').checked = card.dataset.displayInList === 'true';
+
+  try {
+    const opts = JSON.parse(card.dataset.options || '[]');
+    document.getElementById('prop-options').value = opts.join('\n');
+  } catch { document.getElementById('prop-options').value = ''; }
+
+  document.getElementById('prop-lookup-source').value = card.dataset.lookupSource || 'entity';
+  document.getElementById('prop-lookup-entity').value = card.dataset.lookupEntity || '';
+  toggleTypeExtras();
+  toggleLookupSource();
+
+  // Logic tab
+  document.getElementById('prop-default-value').value = card.dataset.defaultValue || '';
+  document.getElementById('prop-formula').value = card.dataset.calculatedFormula || '';
+  try {
+    const cond = JSON.parse(card.dataset.displayCondition || '{}');
+    document.getElementById('prop-cond-field').value = cond.field || '';
+    document.getElementById('prop-cond-op').value = cond.op || '==';
+    document.getElementById('prop-cond-value').value = cond.value || '';
+  } catch {
+    document.getElementById('prop-cond-field').value = '';
+    document.getElementById('prop-cond-op').value = '==';
+    document.getElementById('prop-cond-value').value = '';
+  }
+  toggleCondValueRow();
+}
+
+function toggleTypeExtras() {
+  const type = document.getElementById('prop-type').value;
+  document.getElementById('options-section').classList.toggle('hidden', !['select','multi_select'].includes(type));
+  document.getElementById('lookup-section').classList.toggle('hidden', type !== 'lookup');
+}
+
+function toggleLookupSource() {
+  const src = document.getElementById('prop-lookup-source').value;
+  document.getElementById('lookup-entity-row').classList.toggle('hidden', src !== 'entity');
+  document.getElementById('lookup-orgunit-row').classList.toggle('hidden', src !== 'org_unit');
+  document.getElementById('lookup-user-row').classList.toggle('hidden', src !== 'user');
+}
+
+function toggleCondValueRow() {
+  const op = document.getElementById('prop-cond-op').value;
+  document.getElementById('cond-value-row').classList.toggle('hidden', ['is_empty','is_not_empty'].includes(op));
+}
+
+function updateCondition() {
+  toggleCondValueRow();
+  updateSelectedField();
+}
+
+function clearCondition() {
+  document.getElementById('prop-cond-field').value = '';
+  document.getElementById('prop-cond-op').value = '==';
+  document.getElementById('prop-cond-value').value = '';
+  updateSelectedField();
+}
+
+function updateFormulaHint() {
+  const list = document.getElementById('formula-field-list');
+  if (!list) return;
+  const cards = document.querySelectorAll('#field-canvas .field-card');
+  list.innerHTML = '';
+  cards.forEach(c => {
+    if (c === selectedCard) return;
+    const name = c.dataset.name || c.dataset.label;
+    if (!name) return;
+    const slug = name.toLowerCase().replace(/\s+/g,'_');
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'text-xs bg-white border border-gray-200 text-gray-600 px-2 py-0.5 rounded font-mono hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700';
+    chip.textContent = `{${slug}}`;
+    chip.onclick = () => {
+      const el = document.getElementById('prop-formula');
+      el.value += `{${slug}}`;
+      updateSelectedField();
+    };
+    list.appendChild(chip);
+  });
+  if (!list.children.length) list.innerHTML = '<span class="text-xs text-gray-400">No other fields yet</span>';
+}
+
+function updateSelectedField() {
+  if (!selectedCard) return;
+  const label = document.getElementById('prop-label').value;
+  const type = document.getElementById('prop-type').value;
+  const required = document.getElementById('prop-required').checked;
+  const unique = document.getElementById('prop-unique').checked;
+  const displayInList = document.getElementById('prop-display-in-list').checked;
+  const opts = document.getElementById('prop-options').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const lookupEntity = document.getElementById('prop-lookup-entity').value;
+  const lookupSource = document.getElementById('prop-lookup-source').value;
+
+  // Logic fields
+  const defaultVal = document.getElementById('prop-default-value').value;
+  const formula = document.getElementById('prop-formula').value;
+  const condField = document.getElementById('prop-cond-field').value.trim();
+  const condOp = document.getElementById('prop-cond-op').value;
+  const condValue = document.getElementById('prop-cond-value').value.trim();
+  const condition = condField ? JSON.stringify({field: condField, op: condOp, value: condValue}) : '';
+
+  selectedCard.dataset.label = label;
+  selectedCard.dataset.fieldType = type;
+  selectedCard.dataset.required = required;
+  selectedCard.dataset.unique = unique;
+  selectedCard.dataset.displayInList = displayInList;
+  selectedCard.dataset.options = JSON.stringify(opts);
+  selectedCard.dataset.lookupEntity = lookupEntity;
+  selectedCard.dataset.lookupSource = lookupSource;
+  selectedCard.dataset.defaultValue = defaultVal;
+  selectedCard.dataset.calculatedFormula = formula;
+  selectedCard.dataset.displayCondition = condition;
+
+  const nameEl = selectedCard.querySelector('p.text-sm');
+  if (nameEl) nameEl.textContent = label || '(unnamed)';
+  const typeEl = selectedCard.querySelector('p.text-xs');
+  if (typeEl) typeEl.textContent = type.replace(/_/g, ' ');
+
+  // Update badges
+  const badgesContainer = selectedCard.querySelector('.flex.items-center.space-x-1');
+  badgesContainer.querySelectorAll('span').forEach(b => b.remove());
+  if (required) {
+    const b = document.createElement('span');
+    b.className = 'text-xs bg-red-50 text-red-500 border border-red-200 px-1.5 py-0.5 rounded';
+    b.textContent = 'req';
+    badgesContainer.prepend(b);
+  }
+  if (displayInList) {
+    const b = document.createElement('span');
+    b.className = 'text-xs bg-green-50 text-green-600 border border-green-200 px-1.5 py-0.5 rounded';
+    b.textContent = 'list';
+    badgesContainer.prepend(b);
+  }
+  if (condition) {
+    const b = document.createElement('span');
+    b.className = 'text-xs bg-purple-50 text-purple-600 border border-purple-200 px-1.5 py-0.5 rounded';
+    b.textContent = 'if';
+    badgesContainer.prepend(b);
+  }
+  if (formula) {
+    const b = document.createElement('span');
+    b.className = 'text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 px-1.5 py-0.5 rounded';
+    b.textContent = '=';
+    badgesContainer.prepend(b);
+  }
+}
+
+function removeField(card) {
+  if (selectedCard === card) {
+    selectedCard = null;
+    document.getElementById('no-selection').classList.remove('hidden');
+    document.getElementById('field-props').classList.add('hidden');
+  }
+  card.remove();
+  updateFieldCount();
+}
+
+function updateFieldCount() {
+  const count = document.querySelectorAll('#field-canvas .field-card').length;
+  document.getElementById('fb-field-count').textContent = count;
+}
+
+function saveFields() {
+  const cards = document.querySelectorAll('#field-canvas .field-card');
+  const fields = [];
+  cards.forEach((card, idx) => {
+    let opts = [];
+    try { opts = JSON.parse(card.dataset.options || '[]'); } catch {}
+    fields.push({
+      id: card.dataset.id || null,
+      label: card.dataset.label || '',
+      field_type: card.dataset.fieldType || 'text',
+      is_required: card.dataset.required === 'true',
+      is_unique: card.dataset.unique === 'true',
+      display_in_list: card.dataset.displayInList === 'true',
+      options: opts,
+      lookup_entity_type_id: card.dataset.lookupEntity || null,
+      lookup_source: card.dataset.lookupSource || 'entity',
+      default_value: card.dataset.defaultValue || '',
+      display_condition: card.dataset.displayCondition || '',
+      calculated_formula: card.dataset.calculatedFormula || '',
+      order: idx,
+    });
+  });
+  document.getElementById('fields-data-input').value = JSON.stringify(fields);
+  document.getElementById('save-fields-form').submit();
+}
+
+// ── Form mode ────────────────────────────────────────────────────────────────
+
+function setFormMode(mode) {
+  document.getElementById('form-mode-input').value = mode;
+  const hints = { create: 'Creates a new record each submission', update: 'User selects an existing record to update' };
+  document.getElementById('form-mode-hint').textContent = hints[mode] || '';
+  ['create','update'].forEach(m => {
+    const btn = document.getElementById(`mode-btn-${m}`);
+    if (m === mode) {
+      btn.classList.add('bg-[#0d4f8c]','text-white');
+      btn.classList.remove('text-gray-600','bg-white');
+    } else {
+      btn.classList.remove('bg-[#0d4f8c]','text-white');
+      btn.classList.add('text-gray-600','bg-white');
+    }
+  });
+}
+
+// ── Add Question menu ─────────────────────────────────────────────────────────
+
+function toggleAddMenu() {
+  document.getElementById('add-question-menu').classList.toggle('hidden');
+}
+
+document.addEventListener('click', function(e) {
+  const wrapper = document.getElementById('add-question-wrapper');
+  if (wrapper && !wrapper.contains(e.target)) {
+    document.getElementById('add-question-menu').classList.add('hidden');
+  }
+});
+
+// ── Add panel toggle ──────────────────────────────────────────────────────────
+
+function toggleAddPanel(id) {
+  const panel = document.getElementById(id);
+  panel.classList.toggle('hidden');
+  if (!panel.classList.contains('hidden')) {
+    const input = panel.querySelector('input[type=text]');
+    if (input) input.focus();
+  }
+}
+
+// ── Remove entity ─────────────────────────────────────────────────────────────
+
+function confirmRemoveEntity(etId, name) {
+  if (!confirm(`Remove "${name}" from this app?`)) return;
+  const form = document.getElementById('remove-entity-form');
+  form.action = `/apps/${appId}/remove-entity/${etId}`;
+  form.submit();
+}
+
+// ── Field type helpers ────────────────────────────────────────────────────────
+
+function fieldTypeLabel(type) {
+  const map = {
+    text:'Text', textarea:'Long Text', integer:'Integer', decimal:'Decimal',
+    phone:'Phone / Numeric ID', date:'Date', time:'Time', datetime:'Date & Time',
+    select:'Single Select', multi_select:'Checkbox (Multi-select)',
+    boolean:'Yes / No', photo:'Photo', file:'File Upload', gps:'GPS Location',
+    lookup:'Lookup Table', label:'Label / Instruction', hidden:'Hidden Value',
+    barcode:'Barcode / QR Code', rating:'Rating', group:'Group', repeat_group:'Repeat Group'
+  };
+  return map[type] || type;
+}
+
+function fieldTypeIcon(type) {
+  const map = {
+    text:'T', textarea:'T', integer:'1', decimal:'.0', phone:'#',
+    date:'&#128197;', time:'&#128336;', datetime:'&#128197;',
+    select:'&#9776;', multi_select:'&#9776;', boolean:'Y/N',
+    photo:'&#128247;', file:'&#128206;', gps:'&#128205;',
+    lookup:'&#128279;', label:'Lb', hidden:'&#128065;',
+    barcode:'&#9644;', rating:'&#9733;', group:'[]', repeat_group:'[]'
+  };
+  return map[type] || '?';
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+(function() {
+  const activePanel = '{{ active_panel }}';
+  if (activePanel && activePanel.startsWith('et_')) {
+    const etId = parseInt(activePanel.replace('et_', ''));
+    if (etId) selectPanel('et', etId);
+    else document.getElementById('panel-overview').classList.remove('hidden');
+  } else {
+    document.getElementById('panel-overview').classList.remove('hidden');
+  }
+})();
+</script>
+
+{% endblock %}

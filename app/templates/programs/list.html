@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Programs — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<span class="text-sm font-medium text-gray-700">Programs</span>
+{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">Programs</h1>
+    <p class="text-gray-500 text-sm mt-1">Manage sectors, grants and participant targets</p>
+  </div>
+  {% if can_access('admin_section') %}
+  <a href="{{ url_for('programs.new_program') }}"
+     class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+    + New Program
+  </a>
+  {% endif %}
+</div>
+
+{% set sector_icons = {
+  'health': '🏥', 'nutrition': '🥗', 'wash': '💧', 'shelter': '🏠',
+  'education': '📚', 'livelihoods': '💼', 'protection': '🛡️', 'gbv': '🛡️',
+  'child_protection': '👶', 'food_security': '🌾', 'cccm': '🏕️',
+  'early_recovery': '🔧', 'other': '📋'
+} %}
+
+{% if programs %}
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+  {% for prog in programs %}
+  <a href="{{ url_for('programs.program_detail', program_id=prog.id) }}"
+     class="bg-white rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all overflow-hidden block">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center space-x-3">
+      <span class="text-2xl">{{ sector_icons.get(prog.sector, '📋') }}</span>
+      <div class="flex-1 min-w-0">
+        <h3 class="font-semibold text-gray-900 truncate">{{ prog.name }}</h3>
+        {% if prog.code %}
+        <p class="text-xs text-gray-400 font-mono">{{ prog.code }}</p>
+        {% endif %}
+      </div>
+      {% if prog.sector %}
+      <span class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full whitespace-nowrap">
+        {{ prog.sector|replace('_',' ')|title }}
+      </span>
+      {% endif %}
+    </div>
+    <div class="px-5 py-4">
+      {% if prog.description %}
+      <p class="text-sm text-gray-600 mb-3 line-clamp-2">{{ prog.description }}</p>
+      {% endif %}
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="bg-gray-50 rounded-lg py-2">
+          <p class="text-lg font-bold text-gray-800">{{ prog.active_participants }}</p>
+          <p class="text-xs text-gray-500">Participants</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg py-2">
+          <p class="text-lg font-bold text-gray-800">{{ prog.grants.count() }}</p>
+          <p class="text-xs text-gray-500">Grants</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg py-2">
+          <p class="text-lg font-bold text-gray-800">{{ prog.indicators.count() }}</p>
+          <p class="text-xs text-gray-500">Indicators</p>
+        </div>
+      </div>
+      {% if prog.start_date or prog.end_date %}
+      <p class="text-xs text-gray-400 mt-3 text-center">
+        {{ prog.start_date.strftime('%b %Y') if prog.start_date else '?' }}
+        — {{ prog.end_date.strftime('%b %Y') if prog.end_date else 'Ongoing' }}
+      </p>
+      {% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
+  <p class="text-4xl mb-3">📂</p>
+  <p class="text-gray-500 font-medium">No programs yet</p>
+  {% if can_access('admin_section') %}
+  <a href="{{ url_for('programs.new_program') }}" class="mt-2 inline-block text-blue-600 text-sm hover:underline">
+    Create the first program →
+  </a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

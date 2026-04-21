@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Indicators — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<span class="text-sm font-medium text-gray-700">Indicators</span>
+{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">Indicators</h1>
+    <p class="text-gray-500 text-sm mt-1">Track output and outcome targets across programs</p>
+  </div>
+  {% if can_access('admin_section') %}
+  <a href="{{ url_for('indicators.new_indicator') }}"
+     class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+    + New Indicator
+  </a>
+  {% endif %}
+</div>
+
+<!-- Filters -->
+<form method="GET" class="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+  <div class="flex flex-wrap gap-3">
+    <select name="program_id" onchange="this.form.submit()"
+            class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <option value="">All Programs</option>
+      {% for p in programs %}
+      <option value="{{ p.id }}" {% if sel_program_id == p.id %}selected{% endif %}>{{ p.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="sector" onchange="this.form.submit()"
+            class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <option value="">All Sectors</option>
+      {% for s in sectors %}
+      <option value="{{ s }}" {% if sel_sector == s %}selected{% endif %}>{{ s|replace('_',' ')|title }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</form>
+
+{% if indicators %}
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="bg-gray-50 border-b border-gray-200">
+        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Indicator</th>
+        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Program</th>
+        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sector</th>
+        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Unit</th>
+        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Aggregation</th>
+        <th class="px-4 py-3"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for ind in indicators %}
+      <tr class="hover:bg-gray-50 transition-colors">
+        <td class="px-4 py-3">
+          <p class="font-medium text-gray-900">{{ ind.name }}</p>
+          {% if ind.code %}<p class="text-xs text-gray-400 font-mono">{{ ind.code }}</p>{% endif %}
+        </td>
+        <td class="px-4 py-3 text-gray-600">{{ ind.program.name if ind.program else '—' }}</td>
+        <td class="px-4 py-3">
+          {% if ind.sector %}
+          <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs">{{ ind.sector|replace('_',' ')|title }}</span>
+          {% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3 text-gray-600">{{ ind.unit or '—' }}</td>
+        <td class="px-4 py-3 text-gray-600">{{ ind.aggregation|title }}</td>
+        <td class="px-4 py-3 text-right">
+          <a href="{{ url_for('indicators.indicator_detail', indicator_id=ind.id) }}"
+             class="text-blue-600 hover:underline text-xs font-medium">View →</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
+  <p class="text-4xl mb-3">📈</p>
+  <p class="text-gray-500 font-medium">No indicators yet</p>
+  {% if can_access('admin_section') %}
+  <a href="{{ url_for('indicators.new_indicator') }}" class="mt-2 inline-block text-blue-600 text-sm hover:underline">
+    Create the first indicator →
+  </a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

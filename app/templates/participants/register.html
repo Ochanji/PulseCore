@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Register Case — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<a href="{{ url_for('participants.list_participants') }}" class="text-sm text-gray-500 hover:text-gray-700">Cases</a>
+<span class="text-gray-400 mx-2">/</span>
+<span class="text-sm font-medium text-gray-700">Register</span>
+{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <h1 class="text-2xl font-bold text-gray-900">Register Case</h1>
+  <p class="text-gray-500 text-sm mt-1">A unique case number will be auto-generated on save.</p>
+</div>
+
+<form method="POST" class="max-w-2xl space-y-6">
+
+  <!-- Identity -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-800">Identity</h2>
+    </div>
+    <div class="px-5 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">First Name <span class="text-red-500">*</span></label>
+        <input type="text" name="first_name" required
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+        <input type="text" name="last_name"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+        <input type="date" name="date_of_birth"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+        <select name="gender"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">— Select —</option>
+          {% for g in genders %}
+          <option value="{{ g }}">{{ g|replace('_',' ')|title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">National ID / Refugee ID</label>
+        <input type="text" name="national_id" placeholder="Optional"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+        <input type="tel" name="phone" placeholder="Optional" inputmode="tel"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+  </div>
+
+  <!-- Location & Consent -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-800">Location & Consent</h2>
+    </div>
+    <div class="px-5 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="sm:col-span-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Org Unit</label>
+        <select name="org_unit_id"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">— Select —</option>
+          {% for u in visible_units %}
+          <option value="{{ u.id }}">{{ u.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Consent Status</label>
+        <select name="consent_status"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          {% for c in consent_statuses %}
+          <option value="{{ c }}" {% if c == 'given' %}selected{% endif %}>{{ c|title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Consent Date</label>
+        <input type="date" name="consent_date"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+  </div>
+
+  <!-- Program Enrollment -->
+  {% if programs %}
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-800">Enroll in Program <span class="text-gray-400 text-sm font-normal">(optional)</span></h2>
+    </div>
+    <div class="px-5 py-5">
+      <select name="program_id"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="">— No program yet —</option>
+        {% for prog in programs %}
+        <option value="{{ prog.id }}">{{ prog.name }}{% if prog.sector %} ({{ prog.sector|replace('_',' ')|title }}){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Notes -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-800">Notes</h2>
+    </div>
+    <div class="px-5 py-5">
+      <textarea name="notes" rows="3" placeholder="Additional notes…"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+    </div>
+  </div>
+
+  <div class="flex space-x-3">
+    <a href="{{ url_for('participants.list_participants') }}"
+       class="px-5 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+      Cancel
+    </a>
+    <button type="submit"
+            class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+      Register Case
+    </button>
+  </div>
+</form>
+{% endblock %}

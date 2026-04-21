@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<span class="text-sm font-medium text-gray-700">Dashboard</span>
+{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+    <p class="text-gray-500 text-sm mt-1">{{ current_user.organisation.name }} — overview</p>
+  </div>
+  <p class="text-xs text-gray-400">{{ now().strftime('%A, %d %B %Y') if now is defined else '' }}</p>
+</div>
+
+<!-- Summary KPI cards -->
+<div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+  {% for icon, label, value, href, color in [
+    ('📋', 'Total Records',       total_records,       url_for('records.list_records', entity_type_id=entity_types[0].id) if entity_types else '#', 'blue'),
+    ('👥', 'Participants',        total_participants,   url_for('participants.list_participants'), 'green'),
+    ('📂', 'Active Programs',     total_programs,       url_for('programs.list_programs'), 'purple'),
+    ('⏳', 'Pending Approvals',   pending_approvals,    url_for('workflow.queue'), 'amber'),
+  ] %}
+  <a href="{{ href }}"
+     class="bg-white rounded-xl border border-gray-200 hover:border-{{ color }}-300 hover:shadow-md transition-all p-5 group">
+    <div class="flex items-start justify-between">
+      <div>
+        <span class="text-2xl">{{ icon }}</span>
+        <p class="text-3xl font-bold text-gray-900 mt-2">{{ value }}</p>
+        <p class="text-sm text-gray-500 mt-0.5">{{ label }}</p>
+      </div>
+      <svg class="w-4 h-4 text-gray-300 group-hover:text-gray-500 mt-1 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+    </div>
+    {% if color == 'amber' and pending_approvals > 0 %}
+    <div class="mt-3 h-1 rounded-full bg-amber-400"></div>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+
+  <!-- Submissions chart -->
+  <div class="xl:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-semibold text-gray-800">Form Submissions — Last 12 Months</h2>
+    </div>
+    <canvas id="submissionsChart" height="100"></canvas>
+  </div>
+
+  <!-- Entity type breakdown -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-800">Records by Type</h2>
+    </div>
+    {% if entity_types %}
+    <div class="divide-y divide-gray-100">
+      {% set total_all = stats.values() | sum %}
+      {% for et in entity_types %}
+      {% set count = stats.get(et.id, 0) %}
+      <a href="{{ url_for('records.list_records', entity_type_id=et.id) }}"
+         class="flex items-center px-5 py-3 hover:bg-gray-50 transition-colors">
+        <span class="text-xl mr-3">{{ et.icon or '📋' }}</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-gray-800 truncate">{{ et.name }}</p>
+          <div class="w-full bg-gray-100 rounded-full h-1.5 mt-1">
+            <div class="h-1.5 rounded-full bg-blue-500"
+                 style="width: {{ ((count / total_all * 100) | round | int) if total_all else 0 }}%"></div>
+          </div>
+        </div>
+        <span class="ml-3 text-sm font-bold text-gray-700">{{ count }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="px-5 py-10 text-center text-gray-400 text-sm">
+      No entity types yet.
+      <a href="{{ url_for('entities.list_entities') }}" class="text-blue-600 hover:underline">Create one →</a>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Recent submissions + quick links -->
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+  <!-- Recent submissions -->
+  <div class="xl:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+      <h2 class="font-semibold text-gray-800">Recent Submissions</h2>
+      <a href="{{ url_for('workflow.queue') }}" class="text-xs text-blue-600 hover:underline font-medium">View Queue →</a>
+    </div>
+    {% if recent_submissions %}
+    <div class="divide-y divide-gray-100">
+      {% for sub in recent_submissions %}
+      {% set slabel_map = {'submitted': ('Submitted','bg-blue-100 text-blue-700'), 'approved': ('Approved','bg-green-100 text-green-700'), 'rejected': ('Rejected','bg-red-100 text-red-700'), 'under_review': ('In Review','bg-amber-100 text-amber-700'), 'draft': ('Draft','bg-gray-100 text-gray-500')} %}
+      {% set slabel, scss = slabel_map.get(sub.workflow_state, ('—','bg-gray-100 text-gray-400')) %}
+      <div class="flex items-center px-5 py-3.5 space-x-4">
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-gray-800 truncate">{{ sub.form.name }}</p>
+          <p class="text-xs text-gray-400 mt-0.5">
+            {{ sub.submitter.username if sub.submitter else '—' }}
+            · {{ sub.org_unit.name if sub.org_unit else '—' }}
+            · {{ sub.submitted_at.strftime('%Y-%m-%d %H:%M') if sub.submitted_at else '' }}
+          </p>
+        </div>
+        <span class="px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 {{ scss }}">{{ slabel }}</span>
+        <a href="{{ url_for('workflow.review', submission_id=sub.id) }}"
+           class="text-xs text-blue-600 hover:underline flex-shrink-0">Review</a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="px-5 py-10 text-center text-gray-400 text-sm">No submissions yet.</div>
+    {% endif %}
+  </div>
+
+  <!-- Quick actions -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-800">Quick Actions</h2>
+    </div>
+    <div class="px-5 py-4 space-y-2">
+      {% set actions = [
+        (url_for('participants.register'),           '👤', 'Register Participant',   'Register a new beneficiary'),
+        (url_for('applications.index'),              '📱', 'Open App Launcher',      'Submit data via an application'),
+        (url_for('programs.list_programs'),          '📂', 'View Programs',          'Browse programs and grants'),
+        (url_for('workflow.queue'),                  '✅', 'Approval Queue',         'Review pending submissions'),
+        (url_for('indicators.list_indicators'),      '📈', 'Indicators',             'Track output targets'),
+        (url_for('reports.index'),                   '📊', 'Reports & Export',       'Export data or DHIS2'),
+      ] %}
+      {% for href, icon, title, desc in actions %}
+      <a href="{{ href }}"
+         class="flex items-center space-x-3 px-3 py-3 rounded-lg hover:bg-gray-50 transition-colors group">
+        <span class="text-xl flex-shrink-0">{{ icon }}</span>
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-gray-800 group-hover:text-gray-900">{{ title }}</p>
+          <p class="text-xs text-gray-400">{{ desc }}</p>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+const labels = {{ monthly_submissions | map(attribute='label') | list | tojson }};
+const counts = {{ monthly_submissions | map(attribute='count') | list | tojson }};
+
+new Chart(document.getElementById('submissionsChart'), {
+  type: 'bar',
+  data: {
+    labels: labels,
+    datasets: [{
+      label: 'Submissions',
+      data: counts,
+      backgroundColor: 'rgba(37,99,235,0.15)',
+      borderColor: 'rgba(37,99,235,0.8)',
+      borderWidth: 2,
+      borderRadius: 4,
+      fill: true,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, ticks: { precision: 0, font: { size: 11 } }, grid: { color: 'rgba(0,0,0,0.04)' } },
+      x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+    }
+  }
+});
+</script>
+{% endblock %}

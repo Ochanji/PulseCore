@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block title %}Reports & Export — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<span class="text-sm font-medium text-gray-700">Reports & Export</span>
+{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <h1 class="text-2xl font-bold text-gray-900">Reports & Export</h1>
+  <p class="text-gray-500 text-sm mt-1">Filter records and export in CSV, Excel, or DHIS2 format</p>
+</div>
+
+<div class="flex gap-6">
+
+  <!-- ── Filter Panel ─────────────────────────────────────────────── -->
+  <div class="w-72 flex-shrink-0">
+    <form method="GET" action="{{ url_for('reports.index') }}" id="filter-form">
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+
+        <div class="px-5 py-4 border-b border-gray-100">
+          <h2 class="font-semibold text-gray-800">Filters</h2>
+        </div>
+
+        <div class="px-5 py-4 space-y-4">
+
+          <!-- Entity Type -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              Entity Type <span class="text-red-500">*</span>
+            </label>
+            <select name="entity_type_id" id="entity-type-select"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onchange="this.form.submit()">
+              <option value="">— Select type —</option>
+              {% for et in entity_types %}
+              <option value="{{ et.id }}" {% if sel_entity_type_id == et.id %}selected{% endif %}>
+                {{ et.icon or '📋' }} {{ et.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Org Unit -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              Org Unit
+            </label>
+            <select name="org_unit_id"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">All visible units</option>
+              {% for unit in visible_units %}
+              <option value="{{ unit.id }}" {% if sel_org_unit_id|string == unit.id|string %}selected{% endif %}>
+                {% set depth = unit.path.split('/')|reject('equalto','')|list|length - 1 %}
+                {{ '·' * depth }} {{ unit.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Date Range -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              Date Range
+            </label>
+            <div class="space-y-2">
+              <input type="date" name="date_from" value="{{ sel_date_from }}"
+                     placeholder="From"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <input type="date" name="date_to" value="{{ sel_date_to }}"
+                     placeholder="To"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+          </div>
+
+          <!-- Separator -->
+          <hr class="border-gray-100">
+
+          <!-- Export Format -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              Export Format
+            </label>
+            <div class="space-y-2">
+              {% for val, label, desc in [
+                ('csv',   'CSV',          'Comma-separated values'),
+                ('excel', 'Excel (.xlsx)','Formatted spreadsheet'),
+                ('dhis2', 'DHIS2 JSON',  'dataValueSets format'),
+              ] %}
+              <label class="flex items-start space-x-2.5 cursor-pointer group">
+                <input type="radio" name="format" value="{{ val }}"
+                       {% if sel_format == val %}checked{% endif %}
+                       class="mt-0.5 text-blue-600 border-gray-300 focus:ring-blue-500">
+                <div>
+                  <span class="text-sm font-medium text-gray-700 group-hover:text-gray-900">{{ label }}</span>
+                  <p class="text-xs text-gray-400">{{ desc }}</p>
+                </div>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Aggregate toggle -->
+          <div id="aggregate-wrapper"
+               class="{% if sel_format == 'dhis2' %}hidden{% endif %}">
+            <label class="flex items-center space-x-2.5 cursor-pointer">
+              <input type="checkbox" name="aggregate" value="1"
+                     {% if sel_aggregate == '1' %}checked{% endif %}
+                     class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+              <div>
+                <span class="text-sm font-medium text-gray-700">Aggregate by org unit × month</span>
+                <p class="text-xs text-gray-400">Groups records instead of row-per-record</p>
+              </div>
+            </label>
+          </div>
+
+        </div>
+
+        <!-- Buttons -->
+        <div class="px-5 py-4 border-t border-gray-100 space-y-2">
+          <button type="submit"
+                  class="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors">
+            Preview
+          </button>
+          {% if sel_entity_type_id %}
+          <a id="export-btn"
+             href="{{ url_for('reports.export',
+               entity_type_id=sel_entity_type_id,
+               org_unit_id=sel_org_unit_id,
+               date_from=sel_date_from,
+               date_to=sel_date_to,
+               format=sel_format,
+               aggregate=sel_aggregate) }}"
+             class="block w-full py-2 text-center bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+            Download Export
+          </a>
+          {% else %}
+          <button type="button" disabled
+                  class="w-full py-2 bg-blue-200 text-white text-sm font-medium rounded-lg cursor-not-allowed">
+            Download Export
+          </button>
+          {% endif %}
+        </div>
+
+      </div>
+
+      <!-- DHIS2 note -->
+      <div id="dhis2-note" class="mt-3 {% if sel_format != 'dhis2' %}hidden{% endif %} bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+        <p class="text-xs font-semibold text-amber-700 mb-0.5">DHIS2 dataValueSets</p>
+        <p class="text-xs text-amber-600">
+          Exports one dataValue per numeric field per org unit per month.
+          Aggregate toggle is ignored — grouping is always applied.
+        </p>
+      </div>
+
+    </form>
+  </div>
+
+  <!-- ── Preview Area ──────────────────────────────────────────────── -->
+  <div class="flex-1 min-w-0">
+
+    {% if not sel_entity_type_id %}
+    <!-- Idle state -->
+    <div class="flex flex-col items-center justify-center h-full min-h-64 bg-white rounded-xl border border-dashed border-gray-300">
+      <div class="text-4xl mb-3">📊</div>
+      <p class="text-gray-500 text-sm font-medium">Select an entity type to preview data</p>
+      <p class="text-gray-400 text-xs mt-1">Then choose a format and download your export</p>
+    </div>
+
+    {% elif not preview_records %}
+    <!-- No results -->
+    <div class="bg-white rounded-xl border border-gray-200 p-8 text-center">
+      <p class="text-gray-500 font-medium">No records match the selected filters</p>
+      <p class="text-gray-400 text-sm mt-1">Try widening the date range or selecting a broader org unit</p>
+    </div>
+
+    {% else %}
+    <!-- Results header -->
+    <div class="flex items-center justify-between mb-3">
+      <div>
+        <span class="text-sm font-semibold text-gray-700">
+          {{ selected_et.icon or '📋' }} {{ selected_et.name }}
+        </span>
+        <span class="ml-2 text-xs text-gray-400">
+          Showing first {{ preview_records|length }} of {{ total_count }} record{{ 's' if total_count != 1 }}
+        </span>
+      </div>
+      {% if sel_format == 'dhis2' %}
+      <span class="px-2.5 py-1 text-xs bg-amber-100 text-amber-700 rounded-full font-medium">DHIS2 JSON</span>
+      {% elif sel_aggregate == '1' %}
+      <span class="px-2.5 py-1 text-xs bg-purple-100 text-purple-700 rounded-full font-medium">Aggregated view</span>
+      {% else %}
+      <span class="px-2.5 py-1 text-xs bg-blue-100 text-blue-700 rounded-full font-medium">Record-level</span>
+      {% endif %}
+    </div>
+
+    <!-- Preview table -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 border-b border-gray-200">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Date</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Org Unit</th>
+              {% for field in preview_fields %}
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                {{ field.label }}
+              </th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for record in preview_records %}
+            {% set rv_map = {} %}
+            {% for rv in record.values %}
+              {% if rv_map.update({rv.field_id: rv.value}) %}{% endif %}
+            {% endfor %}
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="px-4 py-3 text-gray-600 whitespace-nowrap">
+                {{ record.created_at.strftime('%Y-%m-%d') if record.created_at else '—' }}
+              </td>
+              <td class="px-4 py-3 text-gray-600 whitespace-nowrap">
+                {{ record.org_unit.name if record.org_unit else '—' }}
+              </td>
+              {% for field in preview_fields %}
+              <td class="px-4 py-3 text-gray-700 max-w-xs truncate">
+                {{ rv_map.get(field.id, '') or '—' }}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if total_count > 10 %}
+      <div class="px-4 py-3 border-t border-gray-100 bg-gray-50 text-xs text-gray-500 text-center">
+        Preview limited to 10 rows — download the export for all {{ total_count }} records
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Show/hide aggregate toggle based on format selection
+document.querySelectorAll('input[name="format"]').forEach(function(radio) {
+  radio.addEventListener('change', function() {
+    var isDHIS2 = this.value === 'dhis2';
+    document.getElementById('aggregate-wrapper').classList.toggle('hidden', isDHIS2);
+    document.getElementById('dhis2-note').classList.toggle('hidden', !isDHIS2);
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Review Submission — PulseCore{% endblock %}
+
+{% block breadcrumb %}
+<a href="{{ url_for('workflow.queue') }}" class="text-sm text-gray-500 hover:text-gray-700">Approval Queue</a>
+<span class="text-gray-400 mx-2">/</span>
+<span class="text-sm font-medium text-gray-700">Review #{{ submission.id }}</span>
+{% endblock %}
+
+{% block content %}
+{% set slabel, scss = state_labels.get(submission.workflow_state, ('Unknown', 'bg-gray-100 text-gray-500')) %}
+
+<div class="flex items-start justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">{{ submission.form.name }}</h1>
+    <div class="flex items-center space-x-3 mt-1">
+      <span class="px-2.5 py-1 rounded-full text-xs font-medium {{ scss }}">{{ slabel }}</span>
+      <span class="text-sm text-gray-500">
+        Submitted by {{ submission.submitter.username if submission.submitter else 'unknown' }}
+        · {{ submission.submitted_at.strftime('%Y-%m-%d %H:%M') if submission.submitted_at else '—' }}
+      </span>
+    </div>
+  </div>
+  <a href="{{ url_for('workflow.queue') }}"
+     class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+    ← Back to Queue
+  </a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- Submitted Data -->
+  <div class="lg:col-span-2 space-y-6">
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="font-semibold text-gray-800">Submitted Data</h2>
+        <p class="text-xs text-gray-400 mt-0.5">
+          {{ submission.form.entity_type.name }} · {{ submission.org_unit.name if submission.org_unit else '—' }}
+        </p>
+      </div>
+      {% if raw_data %}
+      <dl class="divide-y divide-gray-100">
+        {% for key, value in raw_data.items() %}
+        <div class="flex px-5 py-3 text-sm">
+          <dt class="w-48 flex-shrink-0 text-gray-500">{{ key|replace('_',' ')|title }}</dt>
+          <dd class="text-gray-800 font-medium">{{ value or '—' }}</dd>
+        </div>
+        {% endfor %}
+      </dl>
+      {% else %}
+      <div class="px-5 py-8 text-center text-gray-400 text-sm">No structured data available.</div>
+      {% endif %}
+    </div>
+
+    <!-- Workflow History -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="font-semibold text-gray-800">Workflow History</h2>
+      </div>
+      {% if logs %}
+      <div class="px-5 py-4 space-y-4">
+        {% for log in logs %}
+        <div class="flex items-start space-x-3">
+          <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-sm">
+            {{ log.actor.username[0]|upper if log.actor else '?' }}
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center space-x-2">
+              <span class="text-sm font-medium text-gray-800">{{ log.actor.username if log.actor else 'System' }}</span>
+              <span class="text-xs text-gray-400">{{ log.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+            </div>
+            <p class="text-xs text-gray-500 mt-0.5">
+              {% set fl, _ = state_labels.get(log.from_state, ('—','')) %}
+              {% set tl, tc = state_labels.get(log.to_state, (log.to_state,'')) %}
+              Moved from <span class="font-medium">{{ fl }}</span> → <span class="font-medium {{ tc }} px-1.5 py-0.5 rounded">{{ tl }}</span>
+            </p>
+            {% if log.comment %}
+            <p class="text-sm text-gray-600 mt-1 bg-gray-50 rounded-lg px-3 py-2">{{ log.comment }}</p>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="px-5 py-6 text-center text-gray-400 text-sm">No history yet.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Actions Panel -->
+  <div class="space-y-4">
+    {% if transitions %}
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="font-semibold text-gray-800">Take Action</h2>
+      </div>
+      <div class="px-5 py-4 space-y-3">
+        {% set action_styles = {
+          'approved':     'bg-green-600 hover:bg-green-700 text-white',
+          'rejected':     'bg-red-600 hover:bg-red-700 text-white',
+          'under_review': 'bg-amber-500 hover:bg-amber-600 text-white',
+          'submitted':    'bg-blue-600 hover:bg-blue-700 text-white',
+          'recalled':     'bg-purple-600 hover:bg-purple-700 text-white',
+          'draft':        'bg-gray-200 hover:bg-gray-300 text-gray-700',
+        } %}
+        {% for t in transitions %}
+        {% set tl, _ = state_labels.get(t, (t, '')) %}
+        <form method="POST" action="{{ url_for('workflow.transition', submission_id=submission.id) }}">
+          <input type="hidden" name="new_state" value="{{ t }}">
+          <textarea name="comment" rows="2" placeholder="Comment (optional)"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"></textarea>
+          <button type="submit"
+                  class="w-full py-2.5 rounded-lg text-sm font-medium transition-colors {{ action_styles.get(t, 'bg-gray-200 text-gray-700') }}">
+            {{ tl }}
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-xl border border-gray-200 px-5 py-6 text-center">
+      <p class="text-gray-400 text-sm">No further actions available for this submission.</p>
+    </div>
+    {% endif %}
+
+    <!-- Meta -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100"><h2 class="font-semibold text-gray-800">Details</h2></div>
+      <dl class="px-5 py-4 space-y-2 text-sm">
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Form</dt>
+          <dd class="text-gray-800 font-medium">{{ submission.form.name }}</dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Entity Type</dt>
+          <dd class="text-gray-800">{{ submission.form.entity_type.name }}</dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Org Unit</dt>
+          <dd class="text-gray-800">{{ submission.org_unit.name if submission.org_unit else '—' }}</dd>
+        </div>
+        {% if submission.reviewed_by %}
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Reviewed by</dt>
+          <dd class="text-gray-800">{{ submission.reviewer.username if submission.reviewer else '—' }}</dd>
+        </div>
+        {% endif %}
+      </dl>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
