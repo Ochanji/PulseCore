@@ -9,6 +9,16 @@ A multi-tenant data collection and case management platform built for NGOs, heal
 
 ---
 
+## Screenshots
+
+### Dashboard
+![PulseCore Dashboard](docs/screenshots/dashboard.jpg)
+
+### No-Code App Builder
+![PulseCore App Builder](docs/screenshots/app-builder.jpg)
+
+---
+
 ## Features
 
 ### App Builder
@@ -81,7 +91,7 @@ A multi-tenant data collection and case management platform built for NGOs, heal
 ### Installation
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/pulsecore.git
+git clone https://github.com/Ochanji/PulseCore.git
 cd pulsecore
 
 python -m venv venv
