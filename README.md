@@ -12,10 +12,10 @@ A multi-tenant data collection and case management platform built for NGOs, heal
 ## Screenshots
 
 ### Dashboard
-![PulseCore Dashboard](docs/screenshots/dashboard.jpg)
+![PulseCore Dashboard](docs/screenshots/dashboard.png)
 
 ### No-Code App Builder
-![PulseCore App Builder](docs/screenshots/app-builder.jpg)
+![PulseCore App Builder](docs/screenshots/app-builder.png)
 
 ---
 
